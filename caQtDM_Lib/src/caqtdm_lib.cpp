@@ -39,6 +39,8 @@
 #include <QUuid>
 #include <QHostInfo>
 
+#include <QRegularExpression>
+
 // interfacing widgets, handling their own data acquisition ... (thanks zai)
 #include "caWidgetInterface.h"
 
@@ -5915,6 +5917,42 @@ void CaQtDM_Lib::Callback_RelatedDisplayClicked(int indx)
     QStringList args = w->getArgs().split(";");
     QStringList removeParents = w->getReplaceModes().split(";");
 
+
+		// PJT
+		QRegularExpression re("^\\s*\\%\\s*\\(\\s*read\\s+(.+)\\)$");
+
+		for (int j = 0; j < args.count(); ++j) {
+			QStringList macro_list = args[j].split(",");
+			QStringList macro_list_expanded;
+			for (int k = 0; k < macro_list.count(); ++k) {
+				QRegularExpressionMatch match = re.match(macro_list[k]);
+				if (match.hasMatch()) {
+					QString macroFile = match.captured(1);
+
+					if(macroFile.length() > 0) {
+						searchFile *s = new searchFile(macroFile);
+						QString fileNameFound = s->findFile();
+						if(fileNameFound.isNull()) {
+							printf("caQtDM -- file <stylesheet.qss> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(s->displayPath()));
+						}
+						else {
+							QFile file(fileNameFound);
+							file.open(QFile::ReadOnly);
+							QString macroString = QLatin1String(file.readAll());
+							macroString = macroString.simplified().trimmed();
+							file.close();
+							QStringList macro_list_from_file = macroString.split(",");
+							macro_list_expanded = macro_list_expanded + macro_list_from_file;
+						}
+					}
+				}
+				else {
+					macro_list_expanded.append(macro_list[k]);
+				}
+			}
+			args[j] = macro_list_expanded.join(",");
+		}
+
     //qDebug() << "files:" << files;
     //qDebug() << "args" <<  w->getArgs() << args;
 
@@ -6139,6 +6177,10 @@ void CaQtDM_Lib::shellCommand(QString command) {
 #ifndef MOBILE
     command.replace("&T", thisFileShort);
     command.replace("&A", thisFileFull);
+
+		// PJT
+		QVariant macroString = this->property("macroString");
+		command.replace("&S", macroString.toString());
 #ifdef linux
     int windid = this->winId();
     command.replace("&X", QString::number(windid));
