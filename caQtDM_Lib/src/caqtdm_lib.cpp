@@ -3616,7 +3616,7 @@ bool CaQtDM_Lib::Python_Error(QWidget *w, QString message)
 
     PyObject *errObj = NULL, *errData = NULL, *errTraceback = NULL, *pystring = NULL;
     char errorType[1024], errorInfo[1024], asc[MAX_STRING_LENGTH];
-    char *errorStr = 0;
+    const char *errorStr = 0;
 
     // get latest python exception info
     PyErr_Fetch(&errObj, &errData, &errTraceback);
@@ -3624,7 +3624,7 @@ bool CaQtDM_Lib::Python_Error(QWidget *w, QString message)
     pystring = PyObject_Str(errObj);
 #if PY_MAJOR_VERSION >= 3
     bool pystringcheck = PyUnicode_Check(pystring);
-    errorStr = PyUnicode_AsUTF8 (pystring);
+    errorStr = PyUnicode_AsUTF8(pystring);
 #else
     bool pystringcheck = PyString_Check(pystring);
     errorStr = PyString_AsString(pystring);
@@ -3639,7 +3639,7 @@ bool CaQtDM_Lib::Python_Error(QWidget *w, QString message)
     pystring = PyObject_Str(errData);
 #if PY_MAJOR_VERSION >= 3
     pystringcheck = PyUnicode_Check(pystring);
-    errorStr = PyUnicode_AsUTF8 (pystring);
+    errorStr = PyUnicode_AsUTF8(pystring);
 #else
     pystringcheck = PyString_Check(pystring);
     errorStr = PyString_AsString(pystring);
