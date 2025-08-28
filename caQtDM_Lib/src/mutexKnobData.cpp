@@ -32,6 +32,7 @@
 #include <QLineEdit>
 #include <QWidget>
 #include <QDebug>
+#include <QPair>
 #include "QtControls"
 
 /**
@@ -41,14 +42,16 @@ MutexKnobData::MutexKnobData()
 {
     KnobDataArraySize=500;
     KnobData = (knobData*) malloc(KnobDataArraySize * sizeof(knobData));
-    if (KnobData==NULL) {
+    if (KnobData==Q_NULLPTR) {
         printf("caQtDM -- could not allocate memory -> exit\n");
         exit(1);
     }
     for(int i=0; i < KnobDataArraySize; i++){
         KnobData[i].index  = -1;
-        KnobData[i].thisW = (void*) 0;
-        KnobData[i].mutex = (void*) 0;
+        KnobData[i].thisW = (void*) Q_NULLPTR;
+        KnobData[i].mutex = (void*) Q_NULLPTR;
+        KnobData[i].edata.dataB = (void*) Q_NULLPTR;
+        KnobData[i].edata.dataPtr = (void*) Q_NULLPTR;
     }
 
     nbMonitorsPerSecond = 0;
@@ -60,6 +63,7 @@ MutexKnobData::MutexKnobData()
     highestIndexPV = 0;
     highestCountPerSecond = 0;
 
+    suppressUpdates = false;
     ftime(&last);
     ftime(&monitorTiming);
 
@@ -69,11 +73,99 @@ MutexKnobData::MutexKnobData()
 
     myUpdateType = UpdateTimed;
 
-    BlockProcessing(false);
+    // Initialize doDefaultUnitReplacements with env. var CAQTDM_DEFAULT_UNIT_REPLACEMENTS
+    doDefaultUnitReplacements = true;
+    if (qgetenv("CAQTDM_DEFAULT_UNIT_REPLACEMENTS").toLower().replace("\"","") == "false") doDefaultUnitReplacements = false;
+
+    // Create unit replacement strings
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+    QString defaultReplaceUnitString = QString( "muA=0x00b5,0x0041;"
+                                               "uA=0x00b5,0x0041;"
+                                               "?A=0x00b5,0x0041;"
+                                               "muJ=0x00b5,0x004A;"
+                                               "?J=0x00b5,0x004A;"
+                                               "uJ=0x00b5,0x004A");
+#else
+    // Degree char coming from epics (0x00b0)    |||||    is replaced with two characters, one being the degree charachter itself (0x00b0), the other being an Â (0x00c2).
+    // Without this Â char the degree character  ⌄⌄⌄⌄⌄  cannot be displayed correctly, the Â itself is not displayed. We don't know why though.
+    QString defaultReplaceUnitString = QString( "0x00b0=0x00c2,0x00b0;"
+                                                "0x00b5=0x00ce,0x00bc;"
+                                                "muA=0x00ce,0x00bc,0x0041;"
+                                                "uA=0x00ce,0x00bc,0x0041;"
+                                                "?A=0x00ce,0x00bc,0x0041;"
+                                                "muJ=0x00ce,0x00bc,0x004A;"
+                                                "?J=0x00ce,0x00bc,0x004A;"
+                                                "uJ=0x00ce,0x00bc,0x004A");
+#endif
+    // Convert the values from CAQTDM_CUSTOM_UNIT_REPLACEMENTS (from QString replaceUnits) in QStrings that can be inserted into a map to then easily replace all the strings.
+    QStringList replaceUnitsList = createUnitReplacementList();
+
+    // Initialize QMaps for default unit replacement and user defined unit replacement.
+    defaultReplaceUnitsPairList = createUnitReplacementPairList(defaultReplaceUnitString.split(";"));
+    replaceUnitsPairList = createUnitReplacementPairList(replaceUnitsList);
+    //qDebug() << defaultReplaceUnitsPairList;
 }
 
 MutexKnobData:: ~MutexKnobData()
 {
+}
+
+QStringList MutexKnobData::createUnitReplacementList()
+{
+    QString replaceUnits = (QString)  qgetenv("CAQTDM_CUSTOM_UNIT_REPLACEMENTS");
+    replaceUnits = replaceUnits.trimmed().remove("\"");
+    QStringList replaceUnitsList = replaceUnits.split(";");
+    return replaceUnitsList;
+}
+
+QList<QPair<QString, QString> > MutexKnobData::createUnitReplacementPairList(QStringList replaceUnitsList)
+{
+    QList<QPair<QString, QString> > replaceUnitsPairList;
+    if (replaceUnitsList.length() > 0) 
+    {   
+        QStringList::iterator replaceUnitsListIterator;
+        for (replaceUnitsListIterator = replaceUnitsList.begin(); replaceUnitsListIterator != replaceUnitsList.end(); ++replaceUnitsListIterator){
+            QStringList unitHalfs = replaceUnitsListIterator->split("=");
+            if (unitHalfs.length()%2!=0) continue;
+
+            QStringList unitKeyParts = unitHalfs[0].split(",");
+            QStringList unitValueParts = unitHalfs[1].split(",");
+            QString unitKey = "";
+            QString unitValue = "";
+            QStringList::iterator unitPartsIterator;
+            for (unitPartsIterator = unitKeyParts.begin(); unitPartsIterator != unitKeyParts.end(); ++unitPartsIterator) {
+                bool hexOk = true;
+                bool decOk = true;
+                quint16 parsedValueHex = unitPartsIterator->toInt(&hexOk, 16);
+                quint16 parsedValueDez = unitPartsIterator->toInt(&decOk, 10);
+                if (hexOk && unitPartsIterator->toLower().startsWith("0x")){
+                    unitKey += QString(parsedValueHex);
+                } else if (decOk) {
+                    unitKey += QString(parsedValueDez);
+                } else {
+                    //qDebug() << "Argument from CAQTDM_CUSTOM_UNIT_REPLACEMENTS cannot be converted to UTF-8 Code, will be treated as string: " << QString(*unitPartsIterator);
+                    unitKey += QString(*unitPartsIterator);
+                }
+            }
+            for (unitPartsIterator = unitValueParts.begin(); unitPartsIterator != unitValueParts.end(); ++unitPartsIterator) {
+                bool hexOk = true;
+                bool decOk = true;
+                quint16 parsedValueHex = unitPartsIterator->toInt(&hexOk, 16);
+                quint16 parsedValueDez = unitPartsIterator->toInt(&decOk, 10);
+                if (hexOk && unitPartsIterator->toLower().startsWith("0x")){
+                    unitValue += QString(parsedValueHex);
+                } else if (decOk) {
+                    unitValue += QString(parsedValueDez);
+                } else {
+                    //qDebug() << "Argument from CAQTDM_CUSTOM_UNIT_REPLACEMENTS cannot be converted to UTF-8 Code, will be treated as string:  " << QString(*unitPartsIterator);
+                    unitValue += QString(*unitPartsIterator);
+                }
+            }
+            replaceUnitsPairList.append(QPair<QString, QString>(unitKey, unitValue));
+        }
+    }
+    return replaceUnitsPairList;
+    //qDebug() << "replaceUnitsMap: " << replaceUnitsMap;
 }
 
 /**
@@ -84,7 +176,7 @@ void MutexKnobData::ReAllocate(int oldsize, int newsize, void **ptr)
     void *tmp;
     //printf("reallocate for %d size\n", newsize);
     tmp = (void *) malloc((size_t) newsize);
-    if (tmp==NULL) {
+    if (tmp==Q_NULLPTR) {
         printf("caQtDM -- could not allocate any more memory -> exit\n");
         exit (1);
     }
@@ -103,6 +195,26 @@ void MutexKnobData::UpdateMechanism(UpdateType Type)
 {
     myUpdateType = Type;
 }
+/**
+ * softpv naming
+ */
+QString MutexKnobData::SoftPV_Name(QString pv, QWidget *w)
+{
+    //printf("%s\n",asc.toUtf8().constData());
+    //printf("%s_%p\n", qasc(pv),  w);
+    //fflush(stdout);
+    return QString("%1_%2").arg(pv).arg((quintptr)w,QT_POINTER_SIZE * 2, 16, QChar('0'));
+}
+
+bool MutexKnobData::getSuppressUpdates() const
+{
+    return suppressUpdates;
+}
+
+void MutexKnobData::setSuppressUpdates(bool newSuppressUpdates)
+{
+    suppressUpdates = newSuppressUpdates;
+}
 
 /**
  * insert the softpv into the list of softpv's with the corresponding widget
@@ -110,9 +222,10 @@ void MutexKnobData::UpdateMechanism(UpdateType Type)
 void MutexKnobData::InsertSoftPV(QString pv, int num, QWidget *w)
 {
     int indx;
-    char asc[MAXPVLEN+20];
+    //char asc[MAXPVLEN+20];
+    //sprintf(asc, "%s_%p", qasc(pv),  w);
     QMutexLocker locker(&mutex);
-    sprintf(asc, "%s_%p", qasc(pv),  w);
+    QString asc=SoftPV_Name(pv, w);
     if(!getSoftPV(pv, &indx, (QWidget*) w)) {
         softPV_WidgetList.insert(asc, num);
         //qDebug() << "insert softpv_widgetList" << asc;
@@ -175,16 +288,18 @@ void  MutexKnobData::BuildSoftPVList(QWidget *w)
  */
 void MutexKnobData::RemoveSoftPV(QString pv, QWidget *w, int indx)
 {
-    char asc[MAXPVLEN+20];
+    //char asc[MAXPVLEN+20];
     QMutexLocker locker(&mutex);
     // remove from the softpv list
-    sprintf(asc, "%s_%p", qasc(pv),  w);
+    //sprintf(asc, "%s_%p", qasc(pv),  w);
+    QString asc=SoftPV_Name(pv, w);
     softPV_WidgetList.remove(asc);
 
     // and remove from the global list
+    char asc1[MAXPVLEN+20];
     QWidget *w1 = (QWidget*) KnobData[indx].thisW;
-    sprintf(asc, "%s_%d_%p",  KnobData[indx].pv, KnobData[indx].index,  w1);
-    softPV_List.remove(asc);
+    sprintf(asc1, "%s_%d_%p",  KnobData[indx].pv, KnobData[indx].index,  w1);
+    softPV_List.remove(asc1);
 
 /*
      QMapIterator<QString, int> i(softPV_List);
@@ -202,11 +317,10 @@ void MutexKnobData::RemoveSoftPV(QString pv, QWidget *w, int indx)
  */
 void MutexKnobData::UpdateSoftPV(QString pv, double value, QWidget *w, int dataIndex, int dataCount)
 {
-    char asc[MAXPVLEN+20];
-
     // update the right data
-
-    sprintf(asc, "%s_%p", qasc(pv),  w);
+    //char asc[MAXPVLEN+20];
+    //sprintf(asc, "%s_%p", qasc(pv),  w);
+    QString asc=SoftPV_Name(pv, w);
     QMap<QString, int>::const_iterator name = softPV_WidgetList.find(asc);
     if(name != softPV_WidgetList.end()) {
         knobData *ptr = GetMutexKnobDataPtr(name.value());
@@ -218,7 +332,7 @@ void MutexKnobData::UpdateSoftPV(QString pv, double value, QWidget *w, int dataI
 
         // single value
         if(dataCount <= 1) {
-            //qDebug() << "updatesoftpv single" << ptr->index << "for name" << ptr->pv << "with value=" << value << "dataIndex=" << dataIndex << "dataCount=" << dataCount ;
+            //qDebug() << "updateSoftPV --  single" << ptr->index << "for name" << ptr->pv << "with value=" << value << "dataIndex=" << dataIndex << "dataCount=" << dataCount ;
             ptr->edata.rvalue = value;
             ptr->edata.connected = true;
 
@@ -226,14 +340,14 @@ void MutexKnobData::UpdateSoftPV(QString pv, double value, QWidget *w, int dataI
         } else if(dataIndex < dataCount) {
             // initialize data to nan and update the correct index
             if((int) (dataCount * sizeof(double)) != ptr->edata.dataSize) {
-                if(ptr->edata.dataB != (void*) 0) free(ptr->edata.dataB);
+                if(ptr->edata.dataB != (void*) Q_NULLPTR) free(ptr->edata.dataB);
                 ptr->edata.dataB = (void*) malloc(dataCount * sizeof(double));
                 double *data = (double *) ptr->edata.dataB;
                 for(int i=0; i<dataCount; i++) data[i] = qQNaN();
             }
             ptr->edata.dataSize = dataCount * (int) sizeof(double);
             ptr->edata.valueCount = dataCount;
-            //qDebug() << "updatesoftpv wave" << dataIndex << value << dataCount;
+            //qDebug() << "updateSoftPV -- pv" << pv << "wave dataindex" << dataIndex << "with value " << value << dataCount;
             double *data = (double *) ptr->edata.dataB;
             data[dataIndex] = value;
         }
@@ -258,7 +372,7 @@ void MutexKnobData::UpdateSoftPV(QString pv, double value, QWidget *w, int dataI
                 } else {
                     // allocate and initialize data to nan
                     if((int) (dataCount * sizeof(double)) !=  KnobData[indx].edata.dataSize) {
-                        if( KnobData[indx].edata.dataB != (void*) 0) free( KnobData[indx].edata.dataB);
+                        if( KnobData[indx].edata.dataB != (void*) Q_NULLPTR) free( KnobData[indx].edata.dataB);
                         KnobData[indx].edata.dataB = (void*) malloc(dataCount * sizeof(double));
                         double *data = (double *) KnobData[indx].edata.dataB;
                         for(int i=0; i<dataCount; i++) data[i] = qQNaN();
@@ -284,8 +398,9 @@ void MutexKnobData::UpdateSoftPV(QString pv, double value, QWidget *w, int dataI
  */
 bool MutexKnobData::getSoftPV(QString pv, int *indx, QWidget *w)
 {
-    char asc[MAXPVLEN+20];
-    sprintf(asc, "%s_%p", qasc(pv),  w);
+    //char asc[MAXPVLEN+20];
+    //sprintf(asc, "%s_%p", qasc(pv),  w);
+    QString asc=SoftPV_Name(pv, w);
     QMap<QString, int>::const_iterator name = softPV_WidgetList.find(asc);
     if(name != softPV_WidgetList.end()) {
         *indx = name.value();
@@ -395,7 +510,7 @@ knobData* MutexKnobData::getMutexKnobDataPV(QWidget *widget, QString pv)
         }
     loop++;
     }
-    return (knobData*) 0;
+    return (knobData*) Q_NULLPTR;
 }
 
 //*********************************************************************************************************************
@@ -485,28 +600,29 @@ void MutexKnobData::SetMutexKnobDataReceived(knobData *kData) {
     // direct update without timing
 
     if(myUpdateType == UpdateDirect) {
-        QWidget *dispW = (QWidget*) kData->dispW;
-        dataString[0] = '\0';
-        strcpy(units, kData->edata.units);
-        strcpy(fec, kData->edata.fec);
-        int caFieldType= kData->edata.fieldtype;
-
-        if((caFieldType == DBF_STRING || caFieldType == DBF_ENUM || caFieldType == DBF_CHAR) && kData->edata.dataB != (void*) 0) {
-            if(kData->edata.dataSize < STRING_EXCHANGE_SIZE) {
-                memcpy(dataString, (char*) kData->edata.dataB, (size_t) kData->edata.dataSize);
-                dataString[kData->edata.dataSize] = '\0';
-            } else {
-                memcpy(dataString, (char*) kData->edata.dataB, STRING_EXCHANGE_SIZE);
-                dataString[STRING_EXCHANGE_SIZE-1] = '\0';
+        if (!suppressUpdates ) {
+            QWidget *dispW = (QWidget*) kData->dispW;
+            dataString[0] = '\0';
+            qstrncpy(units, kData->edata.units,caqtdm_string_t_length);
+            qstrncpy(fec, kData->edata.fec,caqtdm_string_t_length);
+            int caFieldType= kData->edata.fieldtype;
+            if((caFieldType == DBF_STRING || caFieldType == DBF_ENUM || caFieldType == DBF_CHAR) && kData->edata.dataB != (void*) Q_NULLPTR) {
+                if(kData->edata.dataSize < STRING_EXCHANGE_SIZE) {
+                    memcpy(dataString, (char*) kData->edata.dataB, (size_t) kData->edata.dataSize);
+                    dataString[kData->edata.dataSize] = '\0';
+                } else {
+                    memcpy(dataString, (char*) kData->edata.dataB, STRING_EXCHANGE_SIZE);
+                    dataString[STRING_EXCHANGE_SIZE-1] = '\0';
+                }
             }
-        }
 
-        kData->edata.displayCount = kData->edata.monitorCount;
-        locker.unlock();
-        UpdateWidget(index, dispW, units, fec, dataString, KnobData[index]);
-        kData->edata.lastTime = now;
-        kData->edata.initialize = false;
-        displayCount++;
+            kData->edata.displayCount = kData->edata.monitorCount;
+            locker.unlock();
+            UpdateWidget(index, dispW, units, fec, dataString, KnobData[index]);
+            kData->edata.lastTime = now;
+            kData->edata.initialize = false;
+            displayCount++;
+        }
     }
 }
 
@@ -553,14 +669,15 @@ extern "C" MutexKnobData* C_SetMutexKnobDataReceived(MutexKnobData* p, knobData 
   */
 void MutexKnobData::timerEvent(QTimerEvent *)
 {
+    if (suppressUpdates) {
+        return;
+    }
     double diff=0.2, repRate=5.0;
     char units[40];
     char fec[40];
     char dataString[STRING_EXCHANGE_SIZE];
     struct timeb now;
     int repetitionRate = DEFAULTRATE;
-
-    if(blockProcess) return;
 
     ftime(&now);
 
@@ -670,11 +787,11 @@ void MutexKnobData::timerEvent(QTimerEvent *)
                 int index = kPtr->index;
                 QWidget *dispW = (QWidget*) kPtr->dispW;
                 dataString[0] = '\0';
-                strcpy(units, kPtr->edata.units);
-                strcpy(fec, kPtr->edata.fec);
+                qstrncpy(units, kPtr->edata.units,caqtdm_string_t_length);
+                qstrncpy(fec, kPtr->edata.fec,caqtdm_string_t_length);
                 int caFieldType= kPtr->edata.fieldtype;
 
-                if((caFieldType == DBF_STRING || caFieldType == DBF_ENUM || caFieldType == DBF_CHAR) && kPtr->edata.dataB != (void*) 0) {
+                if((caFieldType == DBF_STRING || caFieldType == DBF_ENUM || caFieldType == DBF_CHAR) && kPtr->edata.dataB != (void*) Q_NULLPTR) {
                     if(kPtr->edata.dataSize < STRING_EXCHANGE_SIZE) {
                         memcpy(dataString, (char*) kPtr->edata.dataB, (size_t) kPtr->edata.dataSize);
                         dataString[kPtr->edata.dataSize] = '\0';
@@ -730,7 +847,7 @@ void MutexKnobData::SetMutexKnobDataConnected(int index, int connected)
 
 #ifdef epics4
     connectInfoShort *tmp = (connectInfoShort *) KnobData[index].edata.info;
-    if (tmp != (connectInfoShort *) 0) tmp->connected = connected;
+    if (tmp != (connectInfoShort *) Q_NULLPTR) tmp->connected = connected;
 #endif
 
     if(!connected) {
@@ -752,76 +869,53 @@ extern "C" MutexKnobData* C_SetMutexKnobDataConnected(MutexKnobData* p, int inde
 QString getBufferAsHexStr(char* buf, int buffsize) {
     QString result;
     for(int i = 0; i < buffsize; ++i)
-        result += "0x" + QString("%1:").arg(buf[i], 2, 16, QChar('0')).toUpper();
+        result += "0x" + QString("%1:").arg(static_cast<unsigned char>(buf[i]), 2, 16, QChar('0')).toUpper();
     result.chop(1);
     return result;
 }
-
-
-
 void MutexKnobData::UpdateWidget(int index, QWidget* w, char *units, char *fec, char *dataString, knobData knb)
 {
-    QString StringUnits = QString::fromLatin1(units);
-    if(StringUnits.size() > 0) {
-        // special characters handling (should be done in constructor to save time; however
-        // then we will have somme application using caQtFM_Lib that will crash
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-        static const QChar egrad = 0x00b0;              // º coming from epics
-        QString Egrad(egrad);
-        static const QChar grad = 0x00b0;   // will be replaced by this utf-8 code
-        QString Grad(grad);
-#else
-        static const QChar egrad = 0x00b0;              // º coming from epics
-        QString Egrad(egrad);
-        //QString Grad=QString::fromLatin1("º");
-        //QString Grad=QString::fromUtf8("\xc2\xb0");
-        static const QChar grad[2] = { 0x00c2, 0x00ba};   // will be replaced by this utf-8 code
-        QString Grad(grad, 2);
+    QString unitsString;
 
-#endif
-
-        static const QChar emu =  0x00b5;               // mu coming from epics
-        QString Emu(emu);
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-        static const QChar mu =  0x00b5;
-        QString Mu(mu);
-        static const QChar uA[2] = { 0x00b5, 0x0041};
-        static const QChar uJ[2] = { 0x00b5, 0x004A};
-        QString uAs(uA, 2);
-        QString uJs(uJ, 2);
-#else
-        static const QChar mu[2] = { 0x00ce, 0x00bc};
-        QString Mu(mu, 2);
-        static const QChar uA[3] = { 0x00ce, 0x00bc, 0x0041}; // muA code for replacing ?A coming from epics
-        static const QChar uJ[3] = { 0x00ce, 0x00bc, 0x004A}; // muA code for replacing ?J coming from epics
-        QString uAs(uA, 3);
-        QString uJs(uJ, 3);
-#endif
-
-        // replace special characters
-        StringUnits.replace(Egrad, Grad);
-        StringUnits.replace(Emu, Mu);
-        //printf("Units(string): %s(%s)\n",StringUnits.toUtf8().data(),units);
-        //printf("Units(hex): %s\n",getBufferAsHexStr(units,strlen(units)).toLatin1().data());
-
-        // seems people did not know how to code mu in EGU
-        StringUnits.replace("muA", uAs);
-        StringUnits.replace("uA", uAs);
-        StringUnits.replace("?A", uAs);
-        StringUnits.replace("muJ", uJs);
-        StringUnits.replace("?J", uJs);
-        StringUnits.replace("uJ", uJs);
-
-        // neither grad
-        static const QChar spec =  0x00c2;
-        QString special(spec);
-        if(StringUnits.contains("°C")) StringUnits.replace(special, "");
+    // Check whether this is specifically accessing the .EGU epics field
+    bool isEguField = QString(knb.pv).endsWith(".EGU");
+    if (isEguField) {
+        // If it is, the unit is stored in the dataString
+        unitsString = QString::fromLatin1(dataString);
+    } else {
+        // If not, it is stored in the units string
+        unitsString = QString::fromLatin1(units);
     }
-    // send data to main thread
-    emit Signal_UpdateWidget(index, w, StringUnits, fec, dataString, knb);
-}
-//*********************************************************************************************************************
 
+
+    // Replace known sequences of characters which are meant to represent special characters
+    if(unitsString.size() > 0) {
+        // iterator for both loops
+        QList<QPair<QString, QString> >::iterator i;
+
+        if (doDefaultUnitReplacements){
+            // replace default QStrings
+            for (i = defaultReplaceUnitsPairList.begin(); i != defaultReplaceUnitsPairList.end(); ++i){
+                unitsString.replace(i->first, i->second);
+            }
+        }
+
+        // replace QStrings defined in CAQTDM_REPLACE_UNITS
+        for (i = replaceUnitsPairList.begin(); i != replaceUnitsPairList.end(); ++i){
+            unitsString.replace(i->first, i->second);
+        }
+    }
+
+    // This just reinterprets it as utf8
+    unitsString = QString::fromUtf8(qasc(unitsString));
+
+    // Send updated data to main thread
+    if (isEguField) {
+        emit Signal_UpdateWidget(index, w, units, fec, unitsString, knb);
+    } else {
+        emit Signal_UpdateWidget(index, w, unitsString, fec, dataString, knb);
+    }
+}
 void MutexKnobData::UpdateTextLine(char *message, char *name)
 {
     QString String = QString::fromLatin1(message);

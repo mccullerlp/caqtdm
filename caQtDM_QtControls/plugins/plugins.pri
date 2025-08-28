@@ -17,7 +17,13 @@ contains(QT_VER_MAJ, 5) {
           QT += designer
       }
 }
-
+contains(QT_VER_MAJ, 6) {
+      CONFIG += plugin qt thread warn_on
+      QT += widgets uitools opengl
+      !MOBILE {
+        QT += designer
+      }
+}
 TEMPLATE = lib
 
 ios | android {
@@ -26,6 +32,7 @@ ios | android {
   LIBS += ../$(CAQTDM_COLLECT)/libqtcontrols.a
   INCLUDEPATH += $(QWTINCLUDE)
   INCLUDEPATH += $$(QWTHOME)/src
+  INCLUDEPATH += $(QTHOME)/include
   MOC_DIR = moc
   OBJECTS_DIR = obj
 }
@@ -38,7 +45,7 @@ win32 {
              LIBS += $$(QWTLIB)/lib/lib$$(QWTLIBNAME).a
 	     LIBS += $$(QTCONTROLS_LIBS)/release/libqtcontrols.a
      }
-     win32-msvc* {
+     win32-msvc* || msvc{
 	     CONFIG(DebugBuild, DebugBuild|ReleaseBuild) { 
                      INCLUDEPATH += $(QWTINCLUDE)
                      LIBS += $$(QWTHOME)/lib/$$(QWTLIBNAME)d.lib
@@ -67,7 +74,7 @@ unix:!ios {
 
    unix:!macx {
       LIBS += -L$(QWTLIB) -Wl,-rpath,$(QWTLIB) -l$$(QWTLIBNAME)
-      LIBS += -L$(QTBASE) -Wl,-rpath,$(QTDM_RPATH) -lqtcontrols
+      LIBS += -L$(CAQTDM_COLLECT) -Wl,-rpath,$(QTDM_RPATH) -lqtcontrols
    }
 
    macx: {
@@ -76,8 +83,9 @@ unix:!ios {
       QMAKE_LFLAGS_PLUGIN += -bundle
       LIBS += -F$(QWTLIB) -framework $$(QWTLIBNAME)
       LIBS += -L $(CAQTDM_COLLECT) -lqtcontrols
-      QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.8
+
    }
+
 }
 
 INCLUDEPATH += ../../caQtDM_Lib/src

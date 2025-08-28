@@ -34,7 +34,13 @@
 #include <QEventLoop>
 #include <QTimer>
 #include <time.h>
+
+#ifndef MOBILE_ANDROID
 #include <sys/timeb.h>
+#else
+#include <androidtimeb.h>
+#endif
+
 #include "sfRetrieval.h"
 #include <QDebug>
 #include <QThread>
@@ -52,6 +58,7 @@
 sfRetrieval::sfRetrieval()
 {
     finished = false;
+    intern_is_Redirected = false;
     manager = new QNetworkAccessManager(this);
     eventLoop = new QEventLoop(this);
     errorString = "";
@@ -132,15 +139,15 @@ void sfRetrieval::cancelDownload()
     aborted = true;
 
     disconnect(manager);
-    if( reply != NULL ) {
+    if( reply != Q_NULLPTR ) {
         //qDebug() << QTime::currentTime().toString() << this << PV << "!!!!!!!!!!!!!!!!! abort networkreply for";
         reply->abort();
         reply->deleteLater();
-        reply = NULL;
+        reply = Q_NULLPTR;
     }
 
     downloadFinished();
-    deleteLater();
+    //deleteLater();
 }
 
 int sfRetrieval::downloadFinished()
@@ -170,6 +177,22 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
     }
 
     QVariant status =  reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+
+    if(status.toInt() == 301||status.toInt() == 302||status.toInt() == 303||status.toInt() == 307||status.toInt() == 308) {
+        errorString = tr("Temporary Redirect status code %1 [%2] from %3").arg(status.toInt()).arg(reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString()).arg(downloadUrl.toString());
+        //qDebug() << QTime::currentTime().toString() << this << PV << "finishreply" << errorString;
+        QByteArray header = reply->rawHeader("location");
+        qDebug() << "location" << header;
+        finished = true;
+        intern_is_Redirected=true;
+        Redirected_Url=header;
+
+        emit requestFinished();
+        reply->deleteLater();
+
+        return;
+    }
+
     if(status.toInt() != 200) {
         errorString = tr("unexpected http status code %1 [%2] from %3").arg(status.toInt()).arg(reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString()).arg(downloadUrl.toString());
         //qDebug() << QTime::currentTime().toString() << this << PV << "finishreply" << errorString;
@@ -187,6 +210,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
     }
 
     QString out = QString(reply->readAll());
+    //qDebug() << "received Data in archiveSF";
     reply->deleteLater();
 
     errorString = "";
@@ -195,7 +219,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
 
 
 #ifdef CSV
-    QStringList result = out.split("\n", QString::SkipEmptyParts);
+    QStringList result = out.split("\n", SKIP_EMPTY_PARTS);
     //printf("number of values received = %d\n",  result.count());
 
     if(result.count() < 2) {
@@ -210,7 +234,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
 
     bool ok1, ok2;
     for(int i=1; i< result.count(); ++i) {
-        QStringList line = result[i].split(";", QString::SkipEmptyParts);
+        QStringList line = result[i].split(";", SKIP_EMPTY_PARTS);
         if(line.count() != expected) {
             errorString = tr("dataline has not the expected number of items %1: [%2]").arg(QString::number(line.count())).arg(expected);
             emit requestFinished();
@@ -241,7 +265,6 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
 #else
 
     totalCount = 0;
-    int stat;
     Backend = "";
 
     JSONValue *value = JSON::Parse(qasc(out));
@@ -249,7 +272,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
     //printf("\n\nout: %s\n\n", qasc(out));
 
     // Did it go wrong?
-    if (value == NULL) {
+    if (value == Q_NULLPTR) {
         errorString = tr("could not parse json string left=%1 right=%2").arg(out.left(20)).arg(out.right(20));
         //qDebug() << QTime::currentTime().toString() << this << PV << "finishreply" << errorString;
         emit requestFinished();
@@ -283,7 +306,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
                             char *channel = new char[data.size()+1];
                             sprintf(channel,"%ls", data.c_str());
                             //qDebug()<< "channel name found" << root0[L"name"]->AsString().c_str() << channel;
-                            delete channel;
+                            delete[] channel;
                         }
 
                         // get backend name
@@ -295,7 +318,7 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
                             Backend = QString(backend);
                             Backend = Backend.replace("\"", "");
                             //qDebug()<< "backend name found" << root0[L"backend"]->AsString().c_str() << backend;
-                            delete backend;
+                            delete[] backend;
                         }
                         delete value2;
                     }
@@ -337,7 +360,8 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
                                     // look for mean
                                     if (root2.find(L"mean") != root2.end() && root2[L"mean"]->IsNumber()) {
                                         //qDebug() << "mean part found";
-                                        stat = swscanf(root2[L"mean"]->Stringify().c_str(), L"%lf", &mean);
+                                        //stat = swscanf(root2[L"mean"]->Stringify().c_str(), L"%lf", &mean);
+                                        mean=root2[L"mean"]->AsNumber();
                                         valueFound = true;
                                     }
                                     delete value2;
@@ -378,7 +402,8 @@ void sfRetrieval::finishReply(QNetworkReply *reply)
                                 JSONObject root1 = array[i]->AsObject();
                                 if (root1.find(L"value") != root1.end() && root1[L"value"]->IsNumber()) {
                                     //qDebug() << "value found";
-                                    stat = swscanf(root1[L"value"]->Stringify().c_str(), L"%lf", &mean);
+                                    //stat = swscanf(root1[L"value"]->Stringify().c_str(), L"%lf", &mean);
+                                    mean=root1[L"value"]->AsNumber();
                                     valueFound = true;
                                 } else
 
@@ -438,6 +463,16 @@ bool sfRetrieval::getDoubleFromString(QString input, double &value) {
     } else {
         return false;
     }
+}
+
+bool sfRetrieval::is_Redirected() const
+{
+    return intern_is_Redirected;
+}
+
+QString sfRetrieval::getRedirected_Url() const
+{
+    return Redirected_Url;
 }
 
 int sfRetrieval::getCount()

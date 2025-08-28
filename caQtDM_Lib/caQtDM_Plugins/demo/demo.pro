@@ -3,6 +3,10 @@ QT += core gui
 contains(QT_VER_MAJ, 5) {
     QT     += widgets
 }
+contains(QT_VER_MAJ, 6) {
+    QT     += widgets
+}
+
 CONFIG += warn_on
 CONFIG += release
 CONFIG += demo_plugin
@@ -19,4 +23,6 @@ INCLUDEPATH    += ../../src
 HEADERS         = demo_plugin.h ../controlsinterface.h
 SOURCES         = demo_plugin.cpp
 TARGET          = demo_plugin
-
+android {
+   INCLUDEPATH += $(ANDROIDFUNCTIONSINCLUDE)
+}

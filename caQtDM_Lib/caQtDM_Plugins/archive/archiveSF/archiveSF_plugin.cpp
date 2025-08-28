@@ -27,6 +27,7 @@
 
 #include "archiveSF_plugin.h"
 #include "archiverCommon.h"
+#include "caQtDM_Lib_global.h"
 
 #define qasc(x) x.toLatin1().constData()
 
@@ -53,6 +54,7 @@ ArchiveSF_Plugin::ArchiveSF_Plugin()
 }
 
 ArchiveSF_Plugin:: ~ArchiveSF_Plugin() {
+    delete archiverCommon;
     //qDebug() << "ArchiveSF_Plugin::~ArchiveSF_Plugin()";
 }
 
@@ -73,15 +75,20 @@ void ArchiveSF_Plugin::Callback_AbortOutstandingRequests(QString key)
 {
     suspend = true;
     //qDebug()  << "Callback_AbortOutstandingRequests for key" << key;
-
-    myThread *tmpThread = (myThread *) 0;
-    QMap<QString, myThread *>::iterator j = listOfThreads.find(key);
+    
+    WorkerSfThread *tmpThread = (WorkerSfThread *) Q_NULLPTR;
+    QMap<QString, WorkerSfThread *>::iterator j = listOfThreads.find(key);
     while (j !=listOfThreads.end() && j.key() == key) {
-        tmpThread = (myThread *) j.value();
-        if(tmpThread != (myThread *) 0) {
+        tmpThread = (WorkerSfThread *) j.value();
+        if(tmpThread != (WorkerSfThread *) Q_NULLPTR) {
             sfRetrieval *retrieval = tmpThread->getArchive();
-            if(retrieval != (sfRetrieval *) 0) retrieval->cancelDownload();
             tmpThread->quit();
+            if(retrieval != (sfRetrieval *) Q_NULLPTR){
+                //qDebug()  << "retrieval->cancelDownload()"<< retrieval;
+                retrieval->cancelDownload();
+                retrieval->deleteLater();
+            }
+
         }
         ++j;
     }
@@ -104,18 +111,18 @@ void ArchiveSF_Plugin::Callback_UpdateInterface( QMap<QString, indexes> listOfIn
     QMap<QString, indexes>::const_iterator i = listOfIndexes.constBegin();
 
     while (i != listOfIndexes.constEnd()) {
-
-        myThread *tmpThread = (myThread *) 0;
+        
+        WorkerSfThread *tmpThread = (WorkerSfThread *) Q_NULLPTR;
         indexes indexNew = i.value();
         //qDebug() <<" -------------" << i.key() << ": " << indexNew.indexX << indexNew.indexY << indexNew.pv << indexNew.w;
-
-        QMap<QString, myThread *>::iterator j = listOfThreads.find(indexNew.key);
+        
+        QMap<QString, WorkerSfThread *>::iterator j = listOfThreads.find(indexNew.key);
         while (j !=listOfThreads.end() && j.key() == indexNew.key) {
-            tmpThread = (myThread *) j.value();
+            tmpThread = (WorkerSfThread *) j.value();
             ++j;
         }
-
-        if((tmpThread != (myThread *) 0) && tmpThread->isRunning()) {
+        
+        if((tmpThread != (WorkerSfThread *) Q_NULLPTR) && tmpThread->isRunning()) {
             //qDebug() << "thread is running" << tmpThread << tmpThread->isRunning();
 
         } else {
@@ -131,7 +138,7 @@ void ArchiveSF_Plugin::Callback_UpdateInterface( QMap<QString, indexes> listOfIn
                     if(!ok) indexNew.nrOfBins = -1;
                 } else if(indexNew.init){
                     QString mess("ArchiveSF plugin -- no nrOfBins defined as dynamic property in widget "  + w->objectName() + ", defaulting to maximum number of points");
-                    if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                    if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtInfoMsg, (char*) qasc(mess));
                 }
 
                 var = w->property("backend");
@@ -144,39 +151,40 @@ void ArchiveSF_Plugin::Callback_UpdateInterface( QMap<QString, indexes> listOfIn
                     } else {
                         QString mess("ArchiveSF plugin -- backend defined as dynamic property in widget but not known (use sf-archiverappliance or sf-databuffer) in widget "  + w->objectName());
                         indexNew.backend = var.toString();
-                        if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                        if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtFatalMsg, (char*) qasc(mess));
                     }
                 } else if(indexNew.init){
                     QString mess("ArchiveSF plugin -- no backend defined as dynamic property in widget "  + w->objectName() + ", it is defined by the server e.g.(sf-archiverappliance,sf-databuffer)");
-                    if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                    if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
                 }
 
                 // first look if an environment variable is set for the url
                 QString url = (QString)  qgetenv("CAQTDM_ARCHIVERSF_URL");
-                if(url.size() == 0) {
+                if(url.size() == 0 ||(!w->property("archiverIndex").toString().isEmpty())) {
                     var = w->property("archiverIndex");
+                    //qDebug() << "Check URL: " <<var;
                     if(!var.isNull()) {
                         QString indexName = var.toString();
                         index_name = qasc(indexName);
                         if(indexNew.init) {
                             QString mess("ArchiveSF plugin -- archiverIndex defined as dynamic property in widget "  + w->objectName() + ", set to " + index_name);
-                            if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                            if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtInfoMsg, (char*) qasc(mess));
                         }
                     } else  if(indexNew.init) {
                         QString mess("ArchiveSF plugin -- no environment variable CAQTDM_ARCHIVERSF_URL set and no archiverIndex defined as dynamic property in widget "  + w->objectName() + ", defaulting to " + index_name);
-                        if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                        if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtInfoMsg, (char*) qasc(mess));
                     }
                 } else {
                     if(indexNew.init) {
                         QString mess("ArchiveSF plugin -- archiver URL defined as " + url + " from environment variable CAQTDM_ARCHIVERSF_URL");
-                        if(messagewindowP != (MessageWindow *) 0) messagewindowP->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+                        if(messagewindowP != (MessageWindow *) Q_NULLPTR) messagewindowP->postMsgEvent(QtInfoMsg, (char*) qasc(mess));
                     }
                     index_name = url;
                 }
             }
 
             WorkerSF *worker = new WorkerSF;
-            myThread *tmpThread = new myThread(worker);
+            WorkerSfThread *tmpThread = new WorkerSfThread(worker);
             //qDebug() << "tmpThread new" << tmpThread;
             listOfThreads.insert(i.key(), tmpThread);;
 
@@ -216,10 +224,10 @@ void ArchiveSF_Plugin::handleResults(indexes indexNew, int nbVal, QVector<double
     //qDebug() << "handle cartesian fisnished";
     QList<QString> removeKeys;
     removeKeys.clear();
-
-    QMap<QString, myThread *>::iterator j = listOfThreads.find(indexNew.key);
+    
+    QMap<QString, WorkerSfThread *>::iterator j = listOfThreads.find(indexNew.key);
     while (j !=listOfThreads.end() && j.key() == indexNew.key) {
-        myThread *tmpThread = (myThread*) j.value();
+        WorkerSfThread *tmpThread = (WorkerSfThread*) j.value();
         tmpThread->quit();
         removeKeys.append(indexNew.key);
         //qDebug() << tmpThread << "sf quit";

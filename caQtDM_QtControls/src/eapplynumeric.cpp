@@ -39,6 +39,7 @@ EApplyNumeric::EApplyNumeric(QWidget *parent, int i, int d, Qt::Orientation pos)
 	decDig = d;
 	d_applyButtonActive = true;
     d_fontScaleEnabled = true;
+    d_buttonVisible = true;
 	init();
 }
 
@@ -75,13 +76,15 @@ void EApplyNumeric::init()
     else
         box = new QHBoxLayout(this);
 
-	box->setMargin(0);
+    SETMARGIN_QT456(box,0);
     box->setSpacing(0);
 
 	if (!data)
 		data = new ENumeric(this, intDig, decDig);
-	if (!button)
+    if (!button) {
         button = new EApplyButton(this);
+        button->setVisible(d_buttonVisible);
+    }
 	box->addWidget(data, 3);
     box->addWidget(button, 1);
 

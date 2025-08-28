@@ -8,16 +8,33 @@ include(../caQtDM.pri)
 QT += core gui network
 
 contains(QT_VER_MAJ, 4) {
-   CONFIG   += qt thread uitools plugin  qtestlib
+   CONFIG += qt thread uitools plugin  qtestlib
 }
 
 contains(QT_VER_MAJ, 5) {
-    QT     += widgets printsupport uitools opengl
+    QT += widgets  uitools opengl
+    !ios:!android {
+       message("caQtDM_Lib -- printsupport added")
+       QT += printsupport
+    }
+
     CONFIG += qt plugin thread
     DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x000000
 }
 
-CONFIG   += warn_on
+contains(QT_VER_MAJ, 6) {
+    QT += widgets  uitools opengl
+    !ios:!android {
+       message("caQtDM_Lib -- printsupport added")
+       QT += printsupport
+    }
+    CONFIG += qt plugin thread
+    DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x050000
+}
+
+FORMS += ../caQtDM_Viewer/src/main.ui
+
+CONFIG += warn_on
 
 TARGET = caQtDM_Lib
 
@@ -30,8 +47,16 @@ INCLUDEPATH += .
 INCLUDEPATH += ./src
 INCLUDEPATH += ./caQtDM_Plugins
 INCLUDEPATH += ../caQtDM_QtControls/src
+INCLUDEPATH += ../caQtDM_Parsers/adlParserSrc
+INCLUDEPATH += ../caQtDM_Parsers/edlParserSrc
 INCLUDEPATH += $(QWTINCLUDE)
 INCLUDEPATH += $(EPICSINCLUDE)
+
+android {
+   INCLUDEPATH += $(ANDROIDFUNCTIONSINCLUDE)
+   QMAKE_CXXFLAGS += "-g"
+   QMAKE_CFLAGS_RELEASE += "-g"
+}
 
 RC_FILE = ./src/caQtDM_Lib.rc
 
@@ -73,9 +98,6 @@ HEADERS += caqtdm_lib.h\
     SOURCES += myQProcess.cpp  processWindow.cpp
     HEADERS += myQProcess.h  processWindow.h
 }
-
-HEADERS += JSONValue.h JSON.h
-SOURCES += JSONValue.cpp JSON.cpp
 
 #if we want some info from the australian lightsource, define it above
 australian: {

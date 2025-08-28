@@ -2,17 +2,17 @@ TARGET_PRODUCT = "Widgets for Display Manager"
 TARGET_FILENAME = "qtcontrols.dll"
 
 include(../caQtDM_Viewer/qtdefs.pri)
-CONFIG += caQtDM_QtControls
+CONFIG += caQtDM_QtControls caQtDM_xdl2ui_Lib
 include(../caQtDM.pri)
 
-DEFINES += QT_NO_DEBUG_OUTPUT
+#DEFINES += QT_NO_DEBUG_OUTPUT
 
 contains(QT_VER_MAJ, 4) {
-      CONFIG += qwt plugin thread uitools
+      CONFIG += qwt plugin thread uitools network
       CONFIG += designer
 }
 contains(QT_VER_MAJ, 5) {
-      QT += widgets concurrent uitools opengl
+      QT += widgets concurrent uitools opengl network
       CONFIG  += qwt plugin
       DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x000000
       ios | android {
@@ -25,7 +25,15 @@ contains(QT_VER_MAJ, 5) {
           QT += designer
       }
 }
-
+contains(QT_VER_MAJ, 6) {
+      QT += widgets concurrent uitools opengl core
+      CONFIG  += qwt plugin
+      ios | android {
+            QT += uiplugin
+      }else {
+        QT += designer
+      }
+}
 CONFIG += warn_on
 CONFIG += console
 
@@ -34,6 +42,13 @@ TEMPLATE = lib
 MOC_DIR = moc
 INCLUDEPATH += src
 INCLUDEPATH += ../caQtDM_Lib/src
+INCLUDEPATH += ../caQtDM_Parsers/adlParserSrc
+INCLUDEPATH += ../caQtDM_Parsers/edlParserSrc
+
+android {
+   INCLUDEPATH += $(ANDROIDFUNCTIONSINCLUDE)
+}
+
 RESOURCES = qtcontrols.qrc
 RC_FILE = ./src/qtcontrols.rc
 
@@ -49,7 +64,7 @@ PRE_TARGETDEPS += \
      moc/moc_cameter.cpp \
      moc/moc_caclock.cpp
 
-contains(QWT_VER_MIN, 1) {
+contains(QWT_VER_MIN, 1)|contains(QWT_VER_MIN, 2) {
   PRE_TARGETDEPS += moc/moc_qwt_thermo_marker_61.cpp
 }
 
@@ -123,7 +138,14 @@ SOURCES	+= \
     src/camimedisplay.cpp \
     src/calinedraw.cpp \
     src/wmsignalpropagator.cpp \
-    src/replacemacro.cpp
+    src/replacemacro.cpp \
+    src/JSON.cpp \
+    src/JSONValue.cpp \
+    src/textedit.cpp
+
+ADL_EDL_FILES {
+    SOURCES	+= src/parseotherfile.cpp
+}
 
 XDR_HACK {
     SOURCES += src/xdr_hack.c
@@ -131,6 +153,8 @@ XDR_HACK {
 }
 
 !MOBILE {
+    SOURCES +=  src/pvtaskmenu.cpp src/pvdialog.cpp
+    HEADERS +=  src/pvtaskmenu.h src/pvdialog.h
     SOURCES +=  src/cadoubletabwidgetextensionfactory.cpp  src/cadoubletabwidgetextension.cpp
     SOURCES +=  src/capolylinetaskmenu.cpp src/capolylinedialog.cpp
     HEADERS +=  src/cadoubletabwidgetextension.h
@@ -140,16 +164,20 @@ XDR_HACK {
 QT += network
 HEADERS += src/networkaccess.h src/fileFunctions.h \
     src/calinedraw.h \
+    src/plotHelperClasses.h \
     src/wmsignalpropagator.h \
-    src/replacemacro.h
+    src/replacemacro.h \
+    src/JSON.h \
+    src/JSONValue.h \
+    src/networkmodel.h \
+    src/textedit.h
 SOURCES += src/networkaccess.cpp src/fileFunctions.cpp
-
 
 contains(QWT_VER_MIN, 0) {
    HEADERS	+= src/qwt_thermo_marker.h
    SOURCES	+= src/qwt_thermo_marker.cpp
 }
-contains(QWT_VER_MIN, 1) {
+contains(QWT_VER_MIN, 1)|contains(QWT_VER_MIN, 2) {
    HEADERS	+= src/qwt_thermo_marker_61.h
    SOURCES	+= src/qwt_thermo_marker_61.cpp
 }
@@ -232,5 +260,9 @@ HEADERS	+= \
     src/addevent.h \
     src/animationcode.h \
     src/hideobjectcode.h
+
+ADL_EDL_FILES {
+    HEADERS	+= src/parseotherfile.h
+}
 
 OTHER_FILES += README

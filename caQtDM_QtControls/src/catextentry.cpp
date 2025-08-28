@@ -50,6 +50,11 @@ void caTextEntry::setValue(double v)
     setText(QString::number(v));
     emit TextEntryChanged(QString::number(v));
 }
+void caTextEntry::setValue(QString string)
+{
+    setText(string);
+    emit TextEntryChanged(string);
+}
 
 // routine not used any more
 void caTextEntry::dataInput()
@@ -108,7 +113,13 @@ bool caTextEntry::eventFilter(QObject *obj, QEvent *event)
         } else {
             QApplication::restoreOverrideCursor();
         }
-        this->activateWindow();  // I added this for ios while I could not get the focus
+
+// The following workaround is only done on mobile as it isn't needed on desktop and only has unwanted side effects,
+// such as the widget getting the focus while another application is focused, only by hovering over it with the mouse cursor.
+#ifdef MOBILE
+            this->activateWindow();  // I added this for ios while I could not get the focus
+#endif
+
     } else if(event->type() == QEvent::Leave) {
         QApplication::restoreOverrideCursor();
         setReadOnly(false);

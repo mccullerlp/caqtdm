@@ -45,6 +45,11 @@
 #include <QtUiTools>
 #include <QWhatsThis>
 #include <QTextBrowser>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#include <QRegExp>
+#else
+#include <QRegularExpression>
+#endif
 
 #include <QWidget>
 #include <QWaitCondition>
@@ -96,6 +101,13 @@
 #else
 #endif
 
+// 50 levels of includes should do it
+#define CAQTDM_MAX_INCLUDE_LEVEL 50
+
+enum macro_parser{
+    parse_simple,parse_withconst
+};
+
 namespace Ui {
 class CaQtDM_Lib;
 }
@@ -124,6 +136,8 @@ public:
     knobData* GetMutexKnobDataPtr(int index);
     knobData* GetMutexKnobDataPV(QWidget *widget, QString pv);
     void TreatRequestedValue(QString pv, QString text, FormatType fType, QWidget *w);
+    // ZHW requested for external integration - allow an external application/object to get the top level ui widget of caQtDM_Lib window
+    QWidget* getMyWidget(){ return myWidget; }
     // interface finish (perhaps we need more)
 
 #ifdef MOBILE
@@ -140,16 +154,35 @@ public:
         Process.waitForFinished(); // sets current thread to sleep and waits for Process end
         QString output(Process.readAllStandardOutput());
 
-        QRegExp noDefaultReg("[^:]*no .*default");
+        QString noDefaultReg_pattern="[^:]*no .*default";
+        QString defaultReg_pattern="default.*: *([a-zA-Z0-9_]+)";
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        QRegExp noDefaultReg(noDefaultReg_pattern);
         int pos = noDefaultReg.indexIn(output);
         if (pos >= 0) {
             return QString();
         }
 
-        QRegExp defaultReg("default.*: *([a-zA-Z0-9_]+)");
+        QRegExp defaultReg(defaultReg_pattern);
         defaultReg.indexIn(output);
         QString printer = defaultReg.cap(1);
         return printer;
+#else
+        QRegularExpression noDefaultReg(noDefaultReg_pattern);
+        QRegularExpressionMatch noDefaultReg_match = noDefaultReg.match(output);
+        qsizetype pos=noDefaultReg_match.capturedStart();
+        //qDebug() << "Regex output:"<< output;
+        if (pos >= 0) {
+            return QString();
+        }
+        QRegularExpression defaultReg(defaultReg_pattern);
+        QRegularExpressionMatch defaultReg_match = defaultReg.match(output);
+        QString printer = defaultReg_match.captured(1);
+        return printer;
+
+
+#endif
     }
 #else
     QString getDefaultPrinterFromSystem() {
@@ -170,7 +203,11 @@ public:
         printer->setOutputFileName(0);
         printer->setPrintProgram("lpr");
 #endif
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         printer->setOrientation(QPrinter::Landscape);
+#else
+        printer->setPageOrientation( QPageLayout::Landscape);
+#endif
         printer->setResolution(300);
         printer->setOutputFormat(QPrinter::NativeFormat);
         QPrintDialog *printDialog = new QPrintDialog(printer, this);
@@ -192,7 +229,11 @@ public:
     {
 #ifndef MOBILE
         QPrinter *printer = new QPrinter;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         printer->setOrientation(QPrinter::Portrait);
+#else
+        printer->setPageOrientation( QPageLayout::Portrait);
+#endif
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
         printer->setOutputFormat(QPrinter::PostScriptFormat);
 #else
@@ -205,6 +246,28 @@ public:
 #else
         Q_UNUSED(filename);
 #endif
+    }
+
+    void save_graphics(QString filename)
+    {
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+        QPixmap pm = this->grab();
+#else
+        QPixmap pm = QPixmap::grabWidget(this);
+#endif
+        QString text = QDate::currentDate().toString("yyyy-MM-dd");
+        text += " " + QTime::currentTime().toString("hh:mm:ss");
+        text += ", " + this->thisFileShort;
+        QPainter painter( &pm );
+        QFont qfont = painter.font();
+        qfont.setPointSizeF(8);
+        painter.setFont(qfont);
+        painter.drawText(QPoint(0, 10), text );
+        if (pm.save(filename,"PNG",-1)){
+            printf("caQtDM image file saved\n");
+        }else{
+            printf("caQtDM image file save failed\n");
+        }
     }
 
 protected:
@@ -244,15 +307,30 @@ private:
         QFontMetrics ft(thisFont);
 
         painter.save();
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         double xscale = printer->pageRect().width()/double(this->width());
         double yscale = printer->pageRect().height()/double(this->height() + ft.lineSpacing());
         double scale = qMin(xscale, yscale);
         painter.translate(printer->paperRect().x() + printer->pageRect().width()/2,
                           printer->paperRect().y() + printer->pageRect().height()/2);
+#else
+        QRectF pageSize=printer->pageLayout().fullRect();
+        double xscale = pageSize.width()/double(this->width());
+        double yscale = pageSize.height()/double(this->height() + ft.lineSpacing());
+        double scale = qMin(xscale, yscale);
+        painter.translate(pageSize.x() + pageSize.width()/2,
+                          pageSize.y() + pageSize.height()/2);
+
+#endif
         painter.scale(scale, scale);
         painter.translate(-width()/2, -height()/2 + ft.lineSpacing());
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         QPixmap pm = QPixmap::grabWidget(this);
+#else
+        QPixmap pm = this->grab();
+#endif
+
         painter.drawPixmap(0, 0, pm);
 
         painter.restore();
@@ -284,8 +362,11 @@ private:
     void TreatOrdinaryValue(QString pv, double value, int32_t idata, QString svalue, QWidget *w);
     bool getSoftChannel(QString pv, knobData &data);
     int parseForDisplayRate(QString &input, int &rate);
+    bool checkJsonString(QString &inputc);
+    bool parseForQRectConst(QString &input,double* valueArray);
     void getStatesToggleAndLed(QWidget *widget, const knobData &data, const QString &String, Qt::CheckState &state);
 
+    QRect widgetResize(QWidget *w, double factX, double factY);
     void resizeSpecials(QString className, QWidget *widget, QVariantList list, double factX, double factY);
     void shellCommand(QString command);
 
@@ -311,6 +392,9 @@ private:
     void tapAndHoldTriggered(QObject *obj, QTapAndHoldGesture* tapAndHold);
     void fingerswipeTriggered(FingerSwipeGesture *gesture);
     Qt::GestureType fingerSwipeGestureType;
+#else
+
+    bool eventFilter(QObject *obj, QEvent *event);
 #endif
 
     long getLongValueFromString(char *textValue, FormatType fType, char **end);
@@ -323,6 +407,7 @@ private:
     QList<QWidget*> topIncludesWidgetList;
     QList<QTabWidget *> allTabs;
     QList<QStackedWidget *> allStacks;
+    QList<caCalc *> allCalcs_Vectors;
 
     QMap<QString, QString> unknownMacrosList;
     QTableWidget* macroTable;
@@ -331,8 +416,8 @@ private:
     int level;
     QString cainclude_path;
     // 50 levels of includes should do it
-    QString savedMacro[50];
-    QString savedFile[50];
+    QString savedMacro[CAQTDM_MAX_INCLUDE_LEVEL];
+    QString savedFile[CAQTDM_MAX_INCLUDE_LEVEL];
 
 #ifndef MOBILE
     myQProcess *proc;
@@ -382,6 +467,10 @@ private:
 
     QString defaultPlugin;
 
+    QString handle_single_Macro(QString key, QString value, QString Text);
+    QString handle_Macro_withConst(QString key, QString value, QString Text);
+    QString handle_Macro_Scan(QString Text, QMap<QString, QString> map, macro_parser parse);
+    QString handle_Macro_Constants(QString Text);
 private slots:
     void Callback_CaCalc(double value) ;
     void Callback_UndefinedMacrowindowExit();
@@ -415,6 +504,7 @@ private slots:
     void showMaxWindow();
     void showMinWindow();
     void showFullWindow();
+    void resizeFullWindow(QRect& q);
 
     void updateTextBrowser();
     void handleFileChanged(const QString&);
@@ -456,6 +546,10 @@ private slots:
     }
 
     void updateResize();
+#ifndef MOBILE
+    void send_delayed_popup_signal();
+#endif
+
 };
 
 #endif // CaQtDM_Lib_H

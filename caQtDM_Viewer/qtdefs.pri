@@ -1,4 +1,4 @@
-CAQTDM_VERSION = V4.2.4
+CAQTDM_VERSION = V4.5.0
 
 exists(../.git) {
   GIT_VERSION = $$system(git --version)
@@ -35,7 +35,7 @@ message ("Qt $$[QT_VERSION] QWT $$(QWTVERSION)")
 
 TARGET_COMPANY = "Paul Scherrer Institut"
 TARGET_DESCRIPTION = "Channel Access Qt Display Manager"
-TARGET_COPYRIGHT = "Copyright (C) 2016 Paul Scherrer Institut"
+TARGET_COPYRIGHT = "Copyright (C) 2012-2025 Paul Scherrer Institut"
 TARGET_INTERNALNAME = "caqtdm"
 
 # enable opengl in stripplot and cartesianplot (edo not use, experimental only, for Qt5 and qwt6.1)
@@ -49,6 +49,10 @@ unix {
     QMAKE_CXXFLAGS += "-g"
     QMAKE_CFLAGS_RELEASE += "-g"
 }
+
+
+# Set the overall Deployment Target for MACOSX
+QMAKE_MACOSX_DEPLOYMENT_TARGET = 15.0
 
 # at psi the designer in 4.8.2 is patched in order to display tooltip description (not a nice test, but for now ok)
 # when the qt version is higher then 5.5.0 then we can also compile the plugins with description texts
@@ -80,9 +84,15 @@ ios | android {
 }
 ios {
   DEFINES += MOBILE_IOS
+  QTPLUGIN += qjpeg qgif
+  QMAKE_CXXFLAGS_WARN_ON = -w
 }
 android {
   DEFINES += MOBILE_ANDROID
+  QMAKE_CXXFLAGS_WARN_ON = -w
+}
+macx {
+  QMAKE_CXXFLAGS_WARN_ON = -w
 }
 
 # for some architectures this has to be defined for scan2D
@@ -100,17 +110,59 @@ unix:!macx:{
     CONFIG += XDR_HACK
    }
  }
+ contains(QT_VER_MAJ, 6) {
+    DEFINES += XDR_HACK
+    DEFINES += XDR_LE
+    CONFIG += XDR_HACK
+ }
+
+}
+
+# enable ADL_EDL automatic on the fly conversion, if not enabled, when an adl file is encountered,
+# an ui file is assumed
+!MOBILE: {
+    CONFIG += ADL_EDL_FILES
+    DEFINES += ADL_EDL_FILES
 }
 
 
 # undefine CONFIG epics7 for epics4 plugin support with epics version 7 (only preliminary version as example)
 # one can specify channel access with ca:// and pv access with pva:// (both use the epics4 plugin)
 # the main work for this plugin was done by Marty Kraimer
+exists($(EPICSINCLUDE)/pv/pvAccess.h) {
+    #a special thing for PSI build
+    eval($$(EPICS_HOST_ARCH)=RHEL7-x86_64){
+        CONFIG += CAQTDM_PSI_SPECIAL_EPICS7_C11
+    }
+    CONFIG += epics7
+    epics7 {
+       message( "Configuring build for epics4 plugin with epics7" )
+       CONFIG += epics4
+    }
+}
 
-#CONFIG += epics7
-epics7 {
-   message( "Configuring build for epics4 plugin with epics7" )
-   CONFIG += epics4
+_CAQTDM_MODBUS = $$(CAQTDM_MODBUS)
+isEmpty(_CAQTDM_MODBUS) {
+message("Modbus Plugin will not be build")
+}
+else {
+    greaterThan(QT_VER_MAJ, 4) {
+        CONFIG += modbus
+        modbus {
+           message( "Configuring build for modbus plugin" )
+        }
+    }
+}
+
+_CAQTDM_GPS = $$(CAQTDM_GPS)
+isEmpty(_CAQTDM_GPS) {
+message("GPS Plugin will not be build")
+}
+else {
+    CONFIG += gps
+    gps {
+      message( "Configuring build for GPS plugin" )
+    }
 }
 
 # undefine CONFIG epics4 for epics4 plugin support with epics version 4 (only preliminary version as example)
@@ -164,8 +216,9 @@ defineTest(existFiles) {
 # take a look at the archiveSF in order to do something similar
 CONFIG += archive
 archive: {
-# html retrieval, can always be build
+# http retrieval, can always be build
    CONFIG += archiveSF
+   CONFIG += archiveHTTP
 # next ones are only buildable at psi
 
 QMAKESPEC = $$(QMAKESPEC)
@@ -241,6 +294,82 @@ DEFINES += TARGET_DESCRIPTION=\"\\\"$${TARGET_DESCRIPTION}\\\"\"
 DEFINES += TARGET_COPYRIGHT=\"\\\"$${TARGET_COPYRIGHT}\\\"\"
 DEFINES += TARGET_INTERNALNAME=\"\\\"$${TARGET_INTERNALNAME}\\\"\"
 DEFINES += TARGET_VERSION_STR=\"\\\"$${CAQTDM_VERSION}\\\"\"
+# 4.5.0
+# special character feature handling by CAQTDM_CUSTOM_UNIT_REPLACMETS
+# caStripplot improved data handling
+# optimized UI loading by reducing the load of incoming data (CAQTDM_SUPPRESS_UPDATES_ONLOAD)
+# improved colors in caQtDM status window
+# added UI loading benchmark
+# added the new archiverhttp-protocol
+# some code refurbishments
+# RPM for RHEL9
+# logfile generation for status window (CAQTDM_CREATE_LOGFILE,CAQTDM_LOGFILE_PATH)
+# small documentation updates
+
+
+
+# 4.4.1
+# caQtDM can be compiled with Qt6
+# new signals for caCartesianplot
+# fix for caInclude with upscaling
+# fix for undefined macros to define a standard value in macro
+# fix for popup panels to get a panel without data monitors
+# fix for caLineEdit and caTextEntry to handle strings with Signal/Slot
+# fix for the start screen on some mobile iOS devices
+# cleanup of data plugin messages
+# fix for Qt6.4 compiler settings with EPICS4 header on Windows
+# fix the PV data selector in designer, missed environment
+
+# 4.4.0
+# fileopenwindow: options changes
+# fix for converted adl files
+# fix for higher python versions
+# fix cacartesianplot for minor ticks disappeared when changing number of ticks
+# searchpaths handling for non ADL files
+# catable fix for big numbers
+# bsread fix null number counting messages
+# epics3plugin fix for disconnected channels
+# epics4plugin is now working with the epics 7 API and PVA can be used
+# filter feature for epics 7 is now available
+# caStripPlot: feature dynamic property "Legend" for rename the channel to a user defined
+# PV-Editor for Designer with network based auto completion
+# new commandline option [-savetoimage] to save screenshots as PNG files
+# added C entry points for python
+# new decoding functions for camera images (Mono8,Mono10p,Mono10packed,Mono12p,Mono12packed)
+# future use of compression for camera images (zLib+jpg)
+
+
+
+# 4.3.0
+# POPUP status windows with possible delays
+# dynamic Property caqtdmPopupUI and caqtdmPopupUI_Delay for POPUP windows (The filename must contain the word popup.ui)
+# wmsignalpropergator can resize a panel
+# fix for to long strings in channel names
+# fix for some character problems
+# fix for alarm status for caMenu
+# fix for softPV Waveform Processing
+# fix for softPV initialisation, wrong initial value, ui loader depending
+# cleanup in the sf-archiver
+# fix in caMenu, paintEvent removed
+# more file status check before accessing (avoid AFS problems)
+# fix the seg fault for the classname problem EPushButton
+# softPV vector/scalar performance problem fixed
+# start of EPICS 4 to EPICS 7 implementation
+# fix for string length problems
+# calinedraw emit textChanged
+# optimized caCalc signal emitance
+# caCamera add slots for zoom and position
+# caQtDM can be compiled with VS2019
+# Updates for Android and IOS
+# fixes some problems with MOC and QWT
+# build in ADL and EDL Parser
+# shellcommand for Mac
+# landscape version for Android
+# fileopening with dynamic conversion causes problems using TEMP directory
+# added for archivSF the redirection feature to access multiple data sources
+# fix a floating point problem on RHL7 in the archiveSF
+
+
 
 # 4.2.4
 # fixed a exception in bsread at closing

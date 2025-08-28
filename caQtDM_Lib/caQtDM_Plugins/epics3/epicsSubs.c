@@ -125,13 +125,44 @@ char* myLimitedString (char * strng) {
 
 #define EpicsPut_ErrorMessage_ClearChannel_Return  \
     C_postMsgEvent(messageWindowPtr, 1, vaPrintf("put pv (%s) %s\n", pv, ca_message (status))); \
-    ca_clear_channel(ch); \
-    return status;
+    connectInfo *info = (connectInfo *) ca_puser(ch);\
+    info->connected=false;\
+    C_SetMutexKnobDataConnected(mutexKnobdataPtr, info->index, info->connected);\
+    info->evAdded = false;\
+    if (ca_state(info->ch) == cs_conn) {\
+        status = ca_clear_event(info->evID);\
+        if (status != ECA_NORMAL) {\
+            PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));\
+        }\
+    }\
+    info->evID = 0;\
+    info->event = 0;\
+    if (info->connected){\
+        ca_clear_channel(ch);\
+    }\
+    return status
 
 #define EpicsGet_ErrorMessage_ClearChannel_Return  \
     C_postMsgEvent(messageWindowPtr, 1, vaPrintf("get pv (%s) %s\n", pv, ca_message (status))); \
-    ca_clear_channel(ch); \
-    return status;
+    if (ca_state(info->ch) == cs_conn) {\
+        status = ca_clear_event(info->evID);\
+        if (status != ECA_NORMAL) {\
+            PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));\
+        }\
+    }\
+    if(info->ch != (chid) 0) {\
+        ca_clear_channel(ch);\
+    }\
+    info->connected=false;\
+    info->evAdded = false;\
+    info->evID = 0;\
+    info->event = 0;\
+    C_SetMutexKnobDataConnected(mutexKnobdataPtr, info->index, info->connected);\
+    knobData kData;\
+    C_GetMutexKnobData(mutexKnobdataPtr, info->index, &kData);\
+    EpicsReconnect(&kData);\
+    return status
+
 
 /**
  * general print routine with timestamp
@@ -145,7 +176,7 @@ void Exceptionhandler(struct exception_handler_args args)
     } else {
         pName = "?";
     }
-    C_postMsgEvent(messageWindowPtr, 1, vaPrintf("Channel Access Exception %s on %s (op=%ld data_type=%s count=%ld)\n",
+    C_postMsgEvent(messageWindowPtr, 2, vaPrintf("Channel Access Exception %s on %s (op=%ld data_type=%s count=%ld)\n",
                                             args.ctx, pName, args.op, dbr_type_to_text(args.type), args.count));
 }
 
@@ -164,7 +195,7 @@ void PrepareDeviceIO(void)
 {
     //printf("preparedeviceio\n");
     int status;
-    char *optimize = NULL;
+    char *optimize = Q_NULLPTR;
     char *s;
 
     if(lockEpics == (epicsMutexId) 0) InitializeContextMutex();
@@ -181,7 +212,7 @@ void PrepareDeviceIO(void)
         ca_add_exception_event(Exceptionhandler, 0);
 
         optimize = (char*) getenv("CAQTDM_OPTIMIZE_EPICS3CONNECTIONS");
-        if (optimize != NULL) {
+        if (optimize != Q_NULLPTR) {
             s = optimize; while (*s) {*s = toupper((unsigned char) *s); s++;}
             if(strcmp(optimize, "TRUE") == 0) {
                 optimizeConnections = true;
@@ -261,7 +292,7 @@ static void dataCallback(struct event_handler_args args)
 
             dataSize = dbr_size_n(args.type, args.count) + sizeof(char);
             if(dataSize != kData.edata.dataSize) {
-               if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+               if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                 kData.edata.dataB = (void*) malloc((size_t) dataSize);
                 kData.edata.dataSize = dataSize;
             }
@@ -288,11 +319,12 @@ static void dataCallback(struct event_handler_args args)
                          stsF->value, info->index, ca_host_name(args.chid),
                          stsF->status, (int) args.count, dbr_size_n(args.type, args.count)));
 
-
             // concatenate strings separated with ';'
             dataSize = dbr_size_n(args.type, args.count) + (args.count+1) * sizeof(char);
+            // the reason for this here are crashes mainly on reloads of the panels
+            if (dataSize < db_strval_dim) dataSize=db_strval_dim;
             if(dataSize != kData.edata.dataSize) {
-                if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                 kData.edata.dataB = (void*) malloc((size_t) dataSize);
                 kData.edata.dataSize = dataSize;
             }
@@ -300,7 +332,7 @@ static void dataCallback(struct event_handler_args args)
             ptr = (char*) kData.edata.dataB;
             ptr[0] = '\0';
             len = 0;
-            strcpy(ptr, myLimitedString(val_ptr[0]));
+            strncpy(ptr, myLimitedString(val_ptr[0]),kData.edata.dataSize);
             for (i = 1; i < args.count; i++) {
                 len = len+ (int) strlen(myLimitedString(val_ptr[i-1]));
                 strcat(&ptr[len++], "\033");
@@ -316,6 +348,7 @@ static void dataCallback(struct event_handler_args args)
         case DBF_ENUM:
         {
             struct dbr_sts_enum *stsF = (struct dbr_sts_enum *) args.dbr;
+
             PRINT(printf("dataCallback enum  %s %d <%d> %d <%s> status=%d count=%d size=%d\n", ca_name(args.chid), (int) args.chid,
                          stsF->value, info->index, ca_host_name(args.chid),
                          stsF->status, (int) args.count, dbr_size_n(args.type, args.count)));
@@ -334,12 +367,11 @@ static void dataCallback(struct event_handler_args args)
                          stsF->value, info->index, ca_host_name(args.chid),
                          stsF->status, (int) args.count, dbr_size_n(args.type, args.count)));
 
-
             AssignEpicsValue((double) stsF->value, (long) stsF->value, args.count);
 
             if(args.count > 1) {
                 if((int) (args.count * sizeof(int16_t)) != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc(args.count * sizeof(int16_t));
                     kData.edata.dataSize = args.count * (int) sizeof(int16_t);
                 }
@@ -358,13 +390,11 @@ static void dataCallback(struct event_handler_args args)
                          stsF->value, info->index, ca_host_name(args.chid),
                          stsF->status, (int) args.count, dbr_size_n(args.type, args.count)));
 
-
             AssignEpicsValue((double) stsF->value, (long) stsF->value, args.count);
-
 
             if(args.count > 1) {
                 if((int) (args.count * sizeof(int32_t)) != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc(args.count * sizeof(int32_t));
                     kData.edata.dataSize = args.count * (int) sizeof(int32_t);
                 }
@@ -387,7 +417,7 @@ static void dataCallback(struct event_handler_args args)
 
             if(args.count > 1) {
                 if((int) (args.count * sizeof(float)) != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc(args.count * sizeof(float));
                     kData.edata.dataSize = args.count * (int) sizeof(float);
                 }
@@ -409,7 +439,7 @@ static void dataCallback(struct event_handler_args args)
 
             if(args.count > 1) {
                 if((int) (args.count * sizeof(double)) != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc(args.count * sizeof(double));
                     memcpy(kData.edata.dataB, &stsF->value, args.count * sizeof(double));
                     kData.edata.dataSize = args.count * (int) sizeof(double);
@@ -422,7 +452,7 @@ static void dataCallback(struct event_handler_args args)
         break;
 
             default:
-                C_postMsgEvent(messageWindowPtr, 1, vaPrintf("unhandled epics type (%d) in datacallback\n", ca_field_type(args.chid)));
+                C_postMsgEvent(messageWindowPtr, 2, vaPrintf("unhandled epics type (%d) in datacallback\n", ca_field_type(args.chid)));
 
         } // end switch
 
@@ -503,7 +533,7 @@ static void displayCallback(struct event_handler_args args) {
                 // concatenate strings separated with ';'
                 dataSize = dbr_size_n(args.type, args.count) + stsF->no_str * sizeof(char);
                 if(dataSize != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc((size_t) dataSize);
                     kData.edata.dataSize = dataSize;
                 }
@@ -523,7 +553,7 @@ static void displayCallback(struct event_handler_args args) {
                 // concatenate strings separated with ';'
                 dataSize = 40;
                 if(dataSize != kData.edata.dataSize) {
-                    if(kData.edata.dataB != (void*) 0) free(kData.edata.dataB);
+                    if(kData.edata.dataB != (void*) Q_NULLPTR) free(kData.edata.dataB);
                     kData.edata.dataB = (void*) malloc((size_t) dataSize);
                     kData.edata.dataSize = dataSize;
                 }
@@ -591,7 +621,7 @@ static void displayCallback(struct event_handler_args args) {
         break;
 
             default:
-                C_postMsgEvent(messageWindowPtr, 1, vaPrintf("unhandled epics type (d) in displaycallback %d\n", ca_field_type(args.chid)));
+                C_postMsgEvent(messageWindowPtr, 2, vaPrintf("unhandled epics type (d) in displaycallback %d\n", ca_field_type(args.chid)));
 
         } // end switch
 
@@ -731,7 +761,7 @@ void connectCallback(struct connection_handler_args args)
     int status;
 
     connectInfo *info = (connectInfo *) ca_puser(args.chid);
-
+    if (!info) return;
     PRINT(printf("connectcallback %p pv=<%s> %d chid=%d\n", info, info->pv, info->evAdded, args.chid));
 
     switch (ca_state(args.chid)) {
@@ -743,9 +773,13 @@ void connectCallback(struct connection_handler_args args)
     case cs_prev_conn:
         PRINT(printf("%s with channel %d has just disconnected, evid=%d\n", ca_name(args.chid), args.chid, info->evID));
         if(info->evAdded) {
-            status = ca_clear_event(info->evID);
-            if (status != ECA_NORMAL) {
-               PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+            if (info->connected){
+                if (info->evID){
+                    status = ca_clear_event(info->evID);
+                    if (status != ECA_NORMAL) {
+                       PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+                    }
+                }
             }
         }
         info->connected = false;
@@ -761,7 +795,7 @@ void connectCallback(struct connection_handler_args args)
             info->event++;
 
 #if EPICS_REVISION < 15
-            status = ca_array_get_callback(dbf_type_to_DBR_CTRL(ca_field_type(args.chid)), 1, args.chid, displayCallback, NULL);
+            status = ca_array_get_callback(dbf_type_to_DBR_CTRL(ca_field_type(args.chid)), 1, args.chid, displayCallback, Q_NULLPTR);
 #else
             status = ca_add_masked_array_event(dbf_type_to_DBR_CTRL(ca_field_type(args.chid)), 0, //ca_element_count(args.chid),
                                          args.chid, displayCallback, info, 0.0,0.0,0.0, &info->evID, DBE_PROPERTY);
@@ -885,9 +919,11 @@ void EpicsDisconnect(knobData *kData)
         if(info->ch != (chid) 0) {
             if(info->evAdded && (info->evID != (evid) 0)) {
                 info->evAdded = false;
-                status = ca_clear_event(info->evID);
-                if (status != ECA_NORMAL) {
-                    printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]);
+                if (ca_state(info->ch) == cs_conn) {
+                    status = ca_clear_event(info->evID);
+                    if (status != ECA_NORMAL) {
+                        printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]);
+                    }
                 }
                 info->evAdded = 0;
                 info->evID = 0;
@@ -930,23 +966,40 @@ void ClearMonitor(knobData *kData)
 
     info = (connectInfo *) kData->edata.info;
     if (info != (connectInfo *) 0) {
-        if(info->ch != (chid) 0) {
-            if(info->evAdded) {
-                info->evAdded = false;
-                PRINT(printf("ca_clear_event: %s index=%d\n", info->pv, aux));
-                status = ca_clear_event(info->evID);
-                if (status != ECA_NORMAL) {
-                    PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+        if (info->connected){
+            if(info->ch != (chid) 0) {
+                if(info->evAdded) {
+                    info->evAdded = false;
+                    PRINT(printf("ca_clear_event: %s index=%d\n", info->pv, aux));
+                    if (ca_state(info->ch) == cs_conn) {
+                        status = ca_clear_event(info->evID);
+                        if (status != ECA_NORMAL) {
+                            PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+                        }
+                    }
                 }
+                status = ca_clear_channel(info->ch);
+                PRINT(printf("ca_clear_channel: %s chid=%d, index=%d\n", info->pv, info->ch, aux));
+                info->connected = false;
+                info->event = 0;
+                //info->ch = 0;
+                if(status != ECA_NORMAL) {
+                    printf("ca_clear_channel: %s %s index=%d\n", ca_message_text[CA_EXTRACT_MSG_NO(status)], info->pv, aux);
+                }
+                info->pv[0] = '\0';
             }
-            status = ca_clear_channel(info->ch);
-            PRINT(printf("ca_clear_channel: %s chid=%d, index=%d\n", info->pv, info->ch, aux));
-            info->connected = false;
+        } else {
+            PRINT(printf("ClearMonitor -- %s is not connected index=%d %d\n", info->pv, info->index, info->evID));
+            info->connected=false;
+            C_SetMutexKnobDataConnected(mutexKnobdataPtr, info->index, info->connected);
+            info->evAdded = false;
+            info->evID = 0;
             info->event = 0;
-            info->ch = 0;
-            if(status != ECA_NORMAL) {
-                printf("ca_clear_channel: %s %s index=%d\n", ca_message_text[CA_EXTRACT_MSG_NO(status)], info->pv, aux);
+            if(info->ch != (chid) 0) {
+                ca_clear_channel(info->ch);
             }
+            info->ch = 0;
+            PRINT(printf("ClearMonitor -- %s should now have been taken out \n", info->pv));
             info->pv[0] = '\0';
         }
     }
@@ -967,9 +1020,18 @@ int EpicsSetValue_Connected(chid ch,char *pv, double rdata, int32_t idata, char 
     int status;
     struct dbr_ctrl_double ctrlR;
     struct dbr_sts_string ctrlS;
+    connectInfo *info = (connectInfo *) ca_puser(ch);
+    if (!info){
+
+        return ECA_DISCONN;
+    }
+    chType = ca_field_type(ch);
+    if (!ca_write_access(ch)){
+        C_postMsgEvent(messageWindowPtr, 1, vaPrintf("put pv (%s) no write access\n", pv));
+        return ECA_NOWTACCESS;
+    }
 
     chType = ca_field_type(ch);
-
     if(forceType == 1) chType = DBF_DOUBLE;
     else if(forceType == 2) chType = DBF_INT;
 
@@ -1017,7 +1079,7 @@ int EpicsSetValue_Connected(chid ch,char *pv, double rdata, int32_t idata, char 
         break;
 
         default:
-            C_postMsgEvent(messageWindowPtr, 1, vaPrintf("unhandled epics type (%d) in epicssetvalue\n", chType));
+            C_postMsgEvent(messageWindowPtr, 2, vaPrintf("unhandled epics type (%d) in epicssetvalue\n", chType));
 
     }
 
@@ -1039,7 +1101,28 @@ int EpicsSetValue_Connected(chid ch,char *pv, double rdata, int32_t idata, char 
         status = ca_get(DBR_CTRL_DOUBLE, ch, &ctrlR);
         status = ca_pend_io(CA_TIMEOUT);
         if (status != ECA_NORMAL) {
-             EpicsGet_ErrorMessage_ClearChannel_Return;
+             //EpicsGet_ErrorMessage_ClearChannel_Return;
+            C_postMsgEvent(messageWindowPtr, 1, vaPrintf("get pv (%s) %s\n", pv, ca_message (status)));
+            if (ca_state(info->ch) == cs_conn) {
+                status = ca_clear_event(info->evID);
+                if (status != ECA_NORMAL) {
+                    PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+                }
+            }
+            if(info->ch != (chid) 0) {
+                ca_clear_channel(ch);
+            }
+            info->connected=false;
+            info->ch=0;
+            info->evAdded = false;
+            info->evID = 0;
+            info->event = 0;
+            C_SetMutexKnobDataConnected(mutexKnobdataPtr, info->index, info->connected);
+            knobData kData;
+            C_GetMutexKnobData(mutexKnobdataPtr, info->index, &kData);\
+            EpicsReconnect(&kData);
+            return status;
+
         }
         status = ctrlR.status;
         break;
@@ -1052,7 +1135,29 @@ int EpicsSetValue_Connected(chid ch,char *pv, double rdata, int32_t idata, char 
         status = ca_get(DBR_STRING, ch, &ctrlS);
         status = ca_pend_io(CA_TIMEOUT);
         if (status != ECA_NORMAL) {
-             EpicsGet_ErrorMessage_ClearChannel_Return;
+             //EpicsGet_ErrorMessage_ClearChannel_Return;
+            C_postMsgEvent(messageWindowPtr, 1, vaPrintf("get pv (%s) %s\n", pv, ca_message (status)));
+            if (ca_state(info->ch) == cs_conn) {
+                status = ca_clear_event(info->evID);
+                if (status != ECA_NORMAL) {
+                    PRINT(printf("ca_clear_event:\n"" %s\n", ca_message_text[CA_EXTRACT_MSG_NO(status)]));
+                }
+            }
+            if(info->ch != (chid) 0) {
+                ca_clear_channel(ch);
+            }
+            info->connected=false;
+            info->ch=0;
+            info->evAdded = false;
+            info->evID = 0;
+            info->event = 0;
+            C_SetMutexKnobDataConnected(mutexKnobdataPtr, info->index, info->connected);
+            knobData kData;
+            C_GetMutexKnobData(mutexKnobdataPtr, info->index, &kData);\
+            EpicsReconnect(&kData);
+            return status;
+
+
         }
         status = ctrlS.status;
         break;
@@ -1061,7 +1166,7 @@ int EpicsSetValue_Connected(chid ch,char *pv, double rdata, int32_t idata, char 
         break;
 
         default:
-            C_postMsgEvent(messageWindowPtr, 1, vaPrintf("unhandled epics type (%d) in epicssetvalue\n", chType));
+            C_postMsgEvent(messageWindowPtr, 2, vaPrintf("unhandled epics type (%d) in epicssetvalue\n", chType));
     }
 
     return ECA_NORMAL;
@@ -1084,7 +1189,7 @@ int EpicsSetValue(char *pv, double rdata, int32_t idata, char *sdata, char *obje
 
     // set epics value
     PRINT(printf(" we have to set a value to an epics device <%s> %f %ld <%s>\n", pv, rdata, idata, sdata));
-    status = ca_create_channel(pv, NULL, 0, CA_PRIORITY, &ch);
+    status = ca_create_channel(pv, Q_NULLPTR, 0, CA_PRIORITY, &ch);
     if (ch == (chid) 0) {
         return !ECA_NORMAL;
     }
@@ -1116,6 +1221,10 @@ int EpicsSetWave_Connected(chid ch,char *pv, float *fdata, double *ddata, int16_
     if (ca_state(ch) != cs_conn) {
         C_postMsgEvent(messageWindowPtr, 1, vaPrintf("pv (%s) is not connected\n", pv));
         return status;
+    }
+    if (!ca_write_access(ch)){
+        C_postMsgEvent(messageWindowPtr, 1, vaPrintf("put pv (%s) no write access\n", pv));
+        return ECA_NOWTACCESS;
     }
 
     chType = ca_field_type(ch);
@@ -1155,7 +1264,7 @@ int EpicsSetWave_Connected(chid ch,char *pv, float *fdata, double *ddata, int16_
         break;
 
         default:
-            C_postMsgEvent(messageWindowPtr, 1, vaPrintf("unhandled epics type (%d) in epicssetwave\n", chType));
+            C_postMsgEvent(messageWindowPtr, 2, vaPrintf("unhandled epics type (%d) in epicssetwave\n", chType));
     }
 
     status = ca_pend_io(CA_TIMEOUT);
@@ -1186,7 +1295,7 @@ int EpicsSetWave(char *pv, float *fdata, double *ddata, int16_t *data16, int32_t
             return !ECA_NORMAL;
     }
 
-    status = ca_create_channel(pv, NULL, 0, CA_PRIORITY, &ch);
+    status = ca_create_channel(pv, Q_NULLPTR, 0, CA_PRIORITY, &ch);
     if (ch == (chid) 0) {
         return !ECA_NORMAL;
     }
@@ -1268,7 +1377,7 @@ int EpicsGetTimeStamp(char *pv, char *timestamp)
     }
 
     // get epics timestamp
-    status = ca_create_channel(pv, NULL, 0, CA_PRIORITY, &ch);
+    status = ca_create_channel(pv, Q_NULLPTR, 0, CA_PRIORITY, &ch);
     if (ch == (chid) 0) return !ECA_NORMAL;
 
     status = ca_pend_io(CA_TIMEOUT/2);
@@ -1285,6 +1394,7 @@ int EpicsGetDescription(char *pv, char *description)
     chid     ch;
     int status;
     pv_desc pvDesc = {'\0'};
+    char * pch;
     dbr_string_t value;
     strcpy(description, "");
 
@@ -1294,11 +1404,17 @@ int EpicsGetDescription(char *pv, char *description)
         C_postMsgEvent(messageWindowPtr, 1, vaPrintf("pv with length=0 (not translated for macro?)\n"));
         return !ECA_NORMAL;
     }
+    // if there is a filter we remove it first
 
-    sprintf(pvDesc, "%s.DESC", pv);
+    strcpy(pvDesc,pv);
+    pch = strstr (pvDesc,".{");
+
+    if (pch) *pch='\0';
+
+    sprintf(pvDesc, "%s.DESC", pvDesc);
 
     // get description
-    status = ca_create_channel(pvDesc, NULL, 0, CA_PRIORITY, &ch);
+    status = ca_create_channel(pvDesc, Q_NULLPTR, 0, CA_PRIORITY, &ch);
     if (ch == (chid) 0) return !ECA_NORMAL;
 
     status = ca_pend_io(CA_TIMEOUT/2);

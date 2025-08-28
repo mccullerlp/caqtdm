@@ -47,34 +47,29 @@
 #else
 #include <QtGui/QApplication>
 #endif
-/*
-class MyApplication: public QApplication
-{
 
-public:
-    MyApplication (int &argc, char ** argv ): QApplication ( argc, argv ) {}
-    ~MyApplication() {}
+#ifdef linux
+#if QT_VERSION < QT_VERSION_CHECK(5,0,0)
+   #define CAQTDM_X11 Q_WS_X11
+#else
+   #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+       #ifndef MOBILE_ANDROID
+          #define CAQTDM_X11 Q_OS_UNIX
+       #endif
+   #endif
+#endif
+#endif
 
-private:
-    virtual bool notify(QObject* receiver, QEvent* e)  {
-
-        try {
-            //qDebug() << "## trying to notify application..";
-            return QApplication::notify(receiver, e);
-        } catch (std::exception& e) {
-            qDebug() << "## !!FATAL!! Exception thrown: " << e.what();
-        }
-
-        return false;
-    }
-};
-*/
+#ifdef CAQTDM_X11
+        #include <QX11Info>
+        #include <X11/Xutil.h>
+        #include <X11/Xlib.h>
+        #include <X11/Xatom.h>
+#endif //CAQTDM_X11
 
 static void unixSignalHandler(int signum) {
 
     Q_UNUSED(signum);
-
-    //qDebug("DBG: main.cpp::unixSignalHandler(). signal = %s\n", strsignal(signum));
 
     /*
      * Make sure your Qt application gracefully quits.
@@ -91,8 +86,8 @@ static void createMap(QMap<QString, QString> &map, const QString& option)
 {
     //qDebug() << "treat option" << option;
     // option of type KEY1=VALUE1,KEY2=VALUE2,KEY3=VALUE3
-    if(option != NULL) {
-        QStringList vars = option.split(",", QString::SkipEmptyParts);
+    if(option != Q_NULLPTR) {
+        QStringList vars = option.split(",", SKIP_EMPTY_PARTS);
         for(int i=0; i< vars.count(); i++) {
             int pos = vars.at(i).indexOf("=");
             if(pos != -1) {
@@ -116,13 +111,22 @@ int main(int argc, char *argv[])
 #endif
 
     //MyApplication app(argc, argv);
+#if defined(_MSC_VER)
+#if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
+    // to avoid an error output: "Qt WebEngine seems to be initialized from a plugin"
+    QGuiApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+#endif
+#endif
 
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Paul Scherrer Institut");
     QApplication::setApplicationName("caQtDM");
 
+
+
 #ifdef MOBILE_ANDROID
-    app.setStyle(QStyleFactory::create("fusion"));
+    //qDebug() << QStyleFactory::keys();
+    app.setStyle(QStyleFactory::create("Fusion"));
 #endif
 
     // we do not want numbers with a group separators
@@ -147,10 +151,10 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    searchFile *s = new searchFile("caQtDM_stylesheet.qss");
-    QString fileNameFound = s->findFile();
+    searchFile *searchDefaultStyleSheet = new searchFile("caQtDM_stylesheet.qss");
+    QString fileNameFound = searchDefaultStyleSheet->findFile();
     if(fileNameFound.isNull()) {
-        printf("caQtDM -- file <caQtDM_stylesheet.qss> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(s->displayPath()));
+        printf("caQtDM -- file <caQtDM_stylesheet.qss> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(searchDefaultStyleSheet->displayPath()));
     } else {
         QFile file(fileNameFound);
         file.open(QFile::ReadOnly);
@@ -159,11 +163,13 @@ int main(int argc, char *argv[])
         app.setStyleSheet(StyleSheet);
         file.close();
     }
+    delete searchDefaultStyleSheet;
 
     int	in, numargs;
     bool attach = false;
     bool minimize= false;
     bool printscreen = false;
+    bool savetoimage = false;
     bool resizing = true;
 
     for (numargs = argc, in = 1; in < numargs; in++) {
@@ -176,7 +182,7 @@ int main(int argc, char *argv[])
             printf("caQtDM -- macro <%s>\n", argv[in]);
             macroString = QString(argv[in]);
         } else if ( strcmp (argv[in], "-attach" ) == 0 ) {
-            printf("caQtDM -- will attach to another caQtDM if running\n");
+            printf("caQtDM -- will attach to another caQtDM instance if running\n");
             attach = true;
         } else if ( strcmp (argv[in], "-noMsg" ) == 0 ) {
             printf("caQtDM -- will minimize its main windows\n");
@@ -197,19 +203,20 @@ int main(int argc, char *argv[])
              in++;
                  printf("Usage:\n"
                    "  caQtDM[X options]\n"
-                   "  [-help | -h | -?]\n"
-                   "  [-x]\n"
-                   "  [-attach]\n"
-                   "  [-noMsg]\n"
+                   "  [-help | -h | -?] describe the options\n"
+                   "  [-x] has no effect (MEDM’s execute-only mode)\n"
+                   "  [-attach] attach to a running caQtDM instance\n"
+                   "  [-noMsg] iconize the main window\n"
                    "  [-stylefile filename] will replace the default stylesheet with the specified file (works only when not attaching)\n"
-                   "  [-macro \"xxx=aaa,yyy=bbb, ...\"]\n"
+                   "  [-macro \"xxx=aaa,yyy=bbb, ...\"] apply macro substitution to replace occurrences of $(xxx) with value aaa\n"
                    "  [-macrodefs filename] will load macro definitions from file\n"
-                   "  [-dg [<width>x<height>][+<xoffset>-<yoffset>]\n"
+                   "  [-dg [<width>x<height>][+<xoffset>-<yoffset>] specifies the geometry (location and size) of the synoptic display\n"
                    "  [-httpconfig] will display a network configuration screen at startup\n"
                    "  [-print] will print file and exit\n"
+                   "  [-savetoimage] will save image file and exit\n"
                    "  [-noResize] will prevent resizing\n"
-                   "  [-cs defaultcontrolsystempluginname]\n"
-                   "  [-option \"xxx=aaa,yyy=bbb, ...\"] options for cs plugins,\n"
+                   "  [-cs defaultcontrolsystempluginname] will override the default epics3 datasource\n"
+                   "  [-option \"xxx=aaa,yyy=bbb, ...\"] various options,\n"
                    "  \t e.g. -option \"updatetype=direct\" will set the updatetype to Direct\n"
                    "  \t options for bsread:\n "
                    "  \t\t bsmodulo,bsoffset,\n"
@@ -218,7 +225,7 @@ int main(int argc, char *argv[])
                    "  \t\t bsstrategy(complete-all|complete-latest)\n"
                    "  [-url url] will look for files on the specified url and download them to a local directory\n"
                    "  [-emptycache] will empty the local cache used for downloading"
-                   "  [file]\n"
+                   "  [file] UI file to open\n"
                    "  [&]\n"
                    "\n"
                    "  -x -displayFont -display are ignored !\n\n"
@@ -232,6 +239,10 @@ int main(int argc, char *argv[])
              printscreen = true;
              minimize = true;
              resizing = false;
+        } else if(!strcmp(argv[in], "-savetoimage")) {
+            savetoimage = true;
+            minimize = true;
+            resizing = false;
         } else if(!strcmp(argv[in], "-noResize")) {
             resizing = false;
         } else if(!strcmp(argv[in], "-httpconfig")) {
@@ -290,33 +301,36 @@ int main(int argc, char *argv[])
 #endif
 
      if(fileNameStylesheet.length() > 0) {
-        s = new searchFile(fileNameStylesheet);
-        fileNameFound = s->findFile();
+        searchFile *searchCustomStyleSheet = new searchFile(fileNameStylesheet);
+        fileNameFound = searchCustomStyleSheet->findFile();
         if(fileNameFound.isNull()) {
-            printf("caQtDM -- file <stylesheet.qss> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(s->displayPath()));
+            printf("caQtDM -- custom stylesheet file <%s> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(fileNameStylesheet) , qasc(searchCustomStyleSheet->displayPath()));
         } else {
             QFile file(fileNameFound);
             file.open(QFile::ReadOnly);
             QString StyleSheet = QLatin1String(file.readAll());
-            printf("caQtDM -- file <%s> replaced the default stylesheet\n", qasc(fileNameStylesheet));
+            printf("caQtDM -- custom stylesheet file <%s> replaced the default stylesheet\n", qasc(fileNameStylesheet));
             app.setStyleSheet(StyleSheet);
             file.close();
         }
+        delete searchCustomStyleSheet;
     }
 
     // load macro definitions from file (located in this directory or in the caQTDM_DISPLAY_PATH)
     if(macroFile.length() > 0) {
-        s = new searchFile(macroFile);
-        fileNameFound = s->findFile();
+        searchFile *searchMacroFile = new searchFile(macroFile);
+        fileNameFound = searchMacroFile->findFile();
         if(fileNameFound.isNull()) {
-            printf("caQtDM -- file <stylesheet.qss> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(s->displayPath()));
+            printf("caQtDM -- custom macro file <%s> could not be loaded, is 'CAQTDM_DISPLAY_PATH' <%s> defined?\n", qasc(macroFile) , qasc(searchMacroFile->displayPath()));
         } else {
             QFile file(fileNameFound);
             file.open(QFile::ReadOnly);
+            printf("caQtDM -- macro definitions were read from custom macro file <%s>\n", qasc(macroFile));
             macroString = QLatin1String(file.readAll());
             macroString = macroString.simplified().trimmed();
             file.close();
         }
+        delete searchMacroFile;
     }
 
 #ifdef IO_OPTIMIZED_FOR_TABWIDGETS
@@ -336,10 +350,34 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    FileOpenWindow window (0, fileName, macroString, attach, minimize, geometry, printscreen, resizing, options);
-    window.setWindowIcon (QIcon(":/caQtDM.ico"));
-    window.show();
-    window.move(0,0);
+    FileOpenWindow fileOpenWindow (0, fileName, macroString, attach, minimize, geometry, printscreen, resizing, options);
+    fileOpenWindow.setWindowIcon (QIcon(":/caQtDM.ico"));
+    if (savetoimage) fileOpenWindow.setProperty("savetoimage", true);
+    fileOpenWindow.show();
+#ifdef CAQTDM_X11
+    #if QT_VERSION > QT_VERSION_CHECK(5,0,0)
+        if (qApp->platformName()== QLatin1String("xcb")){
+    #endif
+    #if QT_VERSION < QT_VERSION_CHECK(6,0,0)
+    QString X_Server_Check=ServerVendor(QX11Info::display());
+    #else
+        QString X_Server_Check=ServerVendor(QNativeInterface::QX11Application::display());
+    #endif
+
+    if (X_Server_Check.contains("Colin Harrison")){ //Xming Server on Windows, yes this is a quickfix!
+       fileOpenWindow.move(10,30);// 0,0 is outside the visible areas on the taget
+    }else{
+       fileOpenWindow.move(0,0);
+    }
+    #if QT_VERSION > QT_VERSION_CHECK(5,0,0)
+        }else{
+            fileOpenWindow.move(0,0);
+        }
+    #endif
+#else
+    fileOpenWindow.move(0,0);
+#endif
+
 
     if (signal(SIGINT, unixSignalHandler) == SIG_ERR) {
         qFatal("ERR - %s(%d): An error occurred while setting a signal handler.\n", __FILE__,__LINE__);
@@ -348,7 +386,47 @@ int main(int argc, char *argv[])
         qFatal("ERR - %s(%d): An error occurred while setting a signal handler.\n", __FILE__,__LINE__);
     }
 
-    QObject::connect(&app, SIGNAL(aboutToQuit()), &window, SLOT(doSomething()));
+    QObject::connect(&app, SIGNAL(aboutToQuit()), &fileOpenWindow, SLOT(doSomething()));
 
-    return app.exec();
+    int exitCode = 0;
+    QString errorMessage;
+
+    // Put this into a try catch statement to catch all errors
+    // Note: This won't work always, as some exeptions, such as segfaults, cannot be caught.
+    try {
+        exitCode = app.exec();
+    } catch (const std::exception& e) {
+        exitCode = EXIT_FAILURE;
+        errorMessage = e.what();
+    }
+
+    // If it was successful, delete the temporary logfile, if it exists.
+    // If it was not successful but the logfile is still writable, try to add some more information post-mortem
+    QString logFilePath = fileOpenWindow.getLogFilePath();
+    if (!logFilePath.isEmpty()) {
+        if (exitCode != 0) { // Append the current content of the statusbar to the logFile.
+            // Create the file
+            QFile crashLogFile(logFilePath);
+            if (crashLogFile.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream textStream(&crashLogFile);
+                // Write information to the file that might help identify the cause of the crash
+                textStream << "\nThis logfile was not deleted automatically because caQtDM encountered a fatal error and exited with:\n"
+                           << "    Exit Code: " << exitCode << "\n"
+                           << "    Error Message: " << errorMessage << "\n"
+                           << "Crash occured on (local time): " << QDateTime::currentDateTime().toLocalTime().toString() << "\n"
+                           << "Content of the statusbar when the crash occurred:\n\n"
+                           << fileOpenWindow.getStatusBarContents();
+
+                // Close the file
+                crashLogFile.close();
+            }
+        } else {
+            // Delete the logfile, as the reason for the exit is not an error
+            QFile logFile(logFilePath);
+            logFile.remove();
+        }
+    }
+
+
+    return exitCode;
 }

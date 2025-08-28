@@ -24,8 +24,12 @@
  */
 
 #if defined(_MSC_VER)
-#define _CRT_SECURE_NO_WARNINGS
+ #define _CRT_SECURE_NO_WARNINGS
+ //to avoid macro redefinition
+ #define _MATH_DEFINES_DEFINED
+ #include <math.h>
 #endif
+
 
 #include <QtControls>
 #include <qtcontrols_monitors_plugin.h>
@@ -75,7 +79,7 @@ static QString XmlFunc(const char *clss, const char *name, int x, int y, int w, 
             strng3 = strng3.arg(propertyname[i]).arg(propertytext[i]);
             strng1.append(strng3);
 #endif
-            if(strstr(propertytype[i], "multiline") != (char*) 0) {
+            if(strstr(propertytype[i], "multiline") != (char*) Q_NULLPTR) {
                 strng2 = " <stringpropertyspecification name=\"%1\" notr=\"true\" type=\"%2\"/>";
                 strng2 = strng2.arg(propertyname[i]).arg(propertytype[i]);
             }
@@ -103,10 +107,21 @@ CustomWidgetInterface_Monitors::CustomWidgetInterface_Monitors(QObject *parent):
 {
 }
 
-void CustomWidgetInterface_Monitors::initialize(QDesignerFormEditorInterface *)
+void CustomWidgetInterface_Monitors::initialize(QDesignerFormEditorInterface *formEditor)
 {
     if (d_isInitialized) return;
     d_isInitialized = true;
+
+#ifndef MOBILE
+        // for edition of channel/pv
+        QExtensionManager *manager = formEditor->extensionManager();
+        Q_ASSERT(manager != 0);
+        manager->registerExtensions(new PVTaskMenuFactory(manager),
+                                    Q_TYPEID(QDesignerTaskMenuExtension));
+#else
+    Q_UNUSED(formEditor);
+#endif
+
 }
 
 caBitnamesInterface::caBitnamesInterface(QObject *parent): CustomWidgetInterface_Monitors(parent)
@@ -673,7 +688,7 @@ QList<QDesignerCustomWidgetInterface*> CustomWidgetCollectionInterface_Monitors:
     return d_plugins;
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0) 
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 #else
 Q_EXPORT_PLUGIN2(QtControls, CustomWidgetCollectionInterface_Monitors)
 #endif

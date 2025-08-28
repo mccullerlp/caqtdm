@@ -30,7 +30,9 @@
 #include <qnumeric.h>
 #include <QDebug>
 #if defined(_MSC_VER)
-  #define snprintf _snprintf
+    #ifndef snprintf
+     #define snprintf _snprintf
+    #endif
 #endif
 
 
@@ -308,66 +310,45 @@ bool caLineDraw::rotateText(float degrees)
 
 void caLineDraw::paintEvent(QPaintEvent *)
 {
-    QFontMetrics fm(font());
-    int h = fm.height();
-    int w = fm.width(m_Text);
     QPainter painter(this);
-    //painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(m_ForeColor);
     painter.setBackground(brush);
     painter.setBackgroundMode(Qt::OpaqueMode);
-
-    painter.fillRect(0,0, width(), height(), brush);
+    painter.fillRect(rect(), brush);
     painter.save();
-    painter.rotate(rotation);
+    QRect textRect;
 
     switch (m_Direction) {
-
-    case Horizontal: {
-        QRect newRect(rect().top() + m_FrameLineWidth + 1, rect().left() + m_FrameLineWidth+1, rect().width() - 2 * m_FrameLineWidth - 2, rect().height() - 2 * m_FrameLineWidth - 2);
-        switch (m_Alignment) {
-        case Left:
-            painter.drawText(newRect, Qt::AlignLeft | Qt::AlignVCenter, m_Text);
-            break;
-        case Right:
-            painter.drawText(newRect, Qt::AlignRight | Qt::AlignVCenter, m_Text);
-            break;
-        case Center:
-        default:
-            painter.drawText(newRect, Qt::AlignCenter | Qt::AlignVCenter, m_Text);
-            break;
-        }
-    }
+    case Horizontal:
+        //Create a rectangle to draw text in, make it slightly smaller than the container rect and take frame width into account
+        textRect=QRect(QPoint(1+m_FrameLineWidth,1+m_FrameLineWidth), QPoint(width()-1-m_FrameLineWidth,height()-1-m_FrameLineWidth));
         break;
-
     case Up:
-        switch (m_Alignment) {
-        case Left:
-            painter.drawText(QPoint(-height()  + 2 * m_FrameLineWidth, width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        case Right:
-            painter.drawText(QPoint(-w - 2 * m_FrameLineWidth, width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        case Center:
-        default:
-            painter.drawText(QPoint(-height()/2 - w/2, width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        }
+        //Rectangle is slightly different than for Horizontal, because it needs to be rotated
+        textRect=QRect(QPoint(1+m_FrameLineWidth,1+m_FrameLineWidth), QPoint(height()-1-m_FrameLineWidth,width()-1-m_FrameLineWidth));
+        //Move the coordinate system and rotate it, so the text is displayed upwards
+        painter.translate(QPoint(0,height()));
+        painter.rotate(rotation);
         break;
-
     case Down:
-        switch (m_Alignment) {
-        case Left:
-            painter.drawText(QPoint(0 + 2 * m_FrameLineWidth , -width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        case Right:
-            painter.drawText(QPoint(height() -w - 2 * m_FrameLineWidth, -width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        case Center:
-        default:
-            painter.drawText(QPoint(height()/2 - w/2, -width()/2 + h/2 -fm.descent()), m_Text);
-            break;
-        }
+        //Rectangle is slightly different than for Horizontal, because it needs to be rotated
+        textRect=QRect(QPoint(1+m_FrameLineWidth,1+m_FrameLineWidth), QPoint(height()-1-m_FrameLineWidth,width()-1-m_FrameLineWidth));
+        //Move the coordinate system and rotate it, so the text is displayed downwards
+        painter.translate(QPoint(width(),0));
+        painter.rotate(rotation);
+    }
+
+    //Now that textrect and rotation/translation is set, draw the text aligned correctly
+    switch (m_Alignment) {
+    case Left:
+        painter.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, m_Text);
+        break;
+    case Right:
+        painter.drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, m_Text);
+        break;
+    case Center:
+    default:
+        painter.drawText(textRect, Qt::AlignCenter | Qt::AlignVCenter, m_Text);
         break;
     }
 
@@ -424,7 +405,7 @@ QSize caLineDraw::sizeHint() const
     QFont f = font();
     f.setPointSize(4);
     QFontMetrics fm(f);
-    int w = fm.width(m_Text);
+    int w = QMETRIC_QT456_FONT_WIDTH(fm,m_Text);
     int h = fm.height();
     /* add some pixels... */
     w += 4;
@@ -485,27 +466,27 @@ void caLineDraw::setFormat(int prec)
         break;
     case truncated:
     case enumeric:
-        if(thisDatatype == caDOUBLE) strcpy(m_Format, "%lld");
-        else strcpy(m_Format, "%d");
+        if(thisDatatype == caDOUBLE) qstrncpy(m_Format, "%lld",MAX_STRING_LENGTH);
+        else qstrncpy(m_Format, "%d",MAX_STRING_LENGTH);
         break;
     case utruncated:
-        if(thisDatatype == caDOUBLE) strcpy(m_Format, "%llu");
-        else strcpy(m_Format, "%u");
+        if(thisDatatype == caDOUBLE) qstrncpy(m_Format, "%llu",MAX_STRING_LENGTH);
+        else qstrncpy(m_Format, "%u",MAX_STRING_LENGTH);
         break;
     case hexadecimal:
-        if(thisDatatype == caDOUBLE) strcpy(m_Format, "0x%llx");
-        else strcpy(m_Format, "0x%x");
+        if(thisDatatype == caDOUBLE) qstrncpy(m_Format, "0x%llx",MAX_STRING_LENGTH);
+        else qstrncpy(m_Format, "0x%x",MAX_STRING_LENGTH);
         break;
     case octal:
-        if(thisDatatype == caDOUBLE) strcpy(m_Format, "O%llo");
-        else strcpy(m_Format, "O%o");
+        if(thisDatatype == caDOUBLE) qstrncpy(m_Format, "O%llo",MAX_STRING_LENGTH);
+        else qstrncpy(m_Format, "O%o",MAX_STRING_LENGTH);
         break;
     case sexagesimal:
     case sexagesimal_hms:
     case sexagesimal_dms:
         break;
     case user_defined_format:{
-            strncpy(m_Format,thisFormatUserString.toLatin1().data(),20);
+            qstrncpy(m_Format,thisFormatUserString.toLatin1().data(),MAX_STRING_LENGTH);
             break;
      }
 
@@ -540,12 +521,12 @@ void caLineDraw::setValue(double value, const QString& units)
     if(qIsNaN(value)){
       snprintf(asc, MAX_STRING_LENGTH,  "nan");
     }
-
     if(m_UnitMode) {
         strcat(asc, " ");
-        strcat(asc, qasc(units));
+        strcat(asc, units.toUtf8().constData());
     }
     setText(asc);
+    emit textChanged(QString(asc));
 }
 
 // caWidgetInterface implementation
@@ -656,6 +637,11 @@ void caLineDraw::getWidgetInfo(QString* pv, int& nbPV, int& limitsDefault, int& 
     Q_UNUSED(limitsDefault);
 
     pv[0] = getPV().trimmed();
+    nbPV = 0;
+    if (pv[0].length()>0){ // only when something is inside the PV it could be something
+        nbPV = 1;
+    }
+
     if(getPrecisionMode() == User) {
         precMode = true;
         Precision = getPrecision();
@@ -669,7 +655,6 @@ void caLineDraw::getWidgetInfo(QString* pv, int& nbPV, int& limitsDefault, int& 
     else if(getColorMode() == Alarm_Static) strcpy(colMode, "Alarm");
     else strcpy(colMode, "Static");
 
-    nbPV = 1;
 }
 
 

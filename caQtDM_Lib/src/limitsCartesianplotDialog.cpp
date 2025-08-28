@@ -28,6 +28,8 @@
 
 limitsCartesianplotDialog::limitsCartesianplotDialog(caCartesianPlot *w, MutexKnobData *data, const QString &title, QWidget *parent) : QWidget(parent)
 {
+    m_channelScalingWasReset = false;
+
     bool ok1, ok2;
     QString xmin, xmax,  ymin, ymax;
     int thisWidth = 650;
@@ -42,20 +44,20 @@ limitsCartesianplotDialog::limitsCartesianplotDialog(caCartesianPlot *w, MutexKn
     setWindowModality (Qt::WindowModal);
 
 #if defined(MOBILE_IOS)
-    if(qApp->desktop()->size().height() < 500) {
+    if(qApp->primaryScreen()->size().height() < 500) {
         thisWidth=430;  // normal for iphone
         thisHeight=150;
     }
     Specials special;
-    special.setNewStyleSheet(this, qApp->desktop()->size(), 16, 10);
+    special.setNewStyleSheet(this, qApp->primaryScreen()->size(), 16, 10);
     QPalette palette;
-    palette.setBrush(QPalette::Background, QColor(255,255,224,255));
+    palette.setBrush(QPalette::Window, QColor(255,255,224,255));
     setPalette(palette);
     setAutoFillBackground(true);
-    setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter, QSize(thisWidth,thisHeight), qApp->desktop()->availableGeometry()));
+    setGeometry(QStyle::alignedRect(Qt::LeftToRight,Qt::AlignCenter, QSize(thisWidth,thisHeight), qApp->primaryScreen()->availableGeometry()));
 #elif defined(MOBILE_ANDROID)
     QPalette palette;
-    palette.setBrush(QPalette::Background, QColor(255,255,224,255));
+    palette.setBrush(QPalette::Window, QColor(255,255,224,255));
     setPalette(palette);
     setAutoFillBackground(true);
     showMax = true;
@@ -91,7 +93,7 @@ limitsCartesianplotDialog::limitsCartesianplotDialog(caCartesianPlot *w, MutexKn
     else if(CartesianPlot->getXscaling() == caCartesianPlot::Channel) xComboBox->setCurrentIndex(1);
     else if(CartesianPlot->getXscaling() == caCartesianPlot::User) xComboBox->setCurrentIndex(2);
 
-    QLabel *xaxisPresent = new QLabel("axe visible");
+    QLabel *xaxisPresent = new QLabel("axis visible");
 
     xCheckBox= new QCheckBox();
     xCheckBox->setChecked(CartesianPlot->getXaxisEnabled());
@@ -99,8 +101,10 @@ limitsCartesianplotDialog::limitsCartesianplotDialog(caCartesianPlot *w, MutexKn
     XaxisType = new QComboBox;
     XaxisType->addItem("linear");
     XaxisType->addItem("log10");
-    if(CartesianPlot->getXaxisType() == caCartesianPlot::log10) XaxisType->setCurrentIndex(1);
-    else XaxisType->setCurrentIndex(0);
+    XaxisType->addItem("time");
+    if(CartesianPlot->getXaxisType() == caCartesianPlot::linear) XaxisType->setCurrentIndex(0);
+    else if(CartesianPlot->getXaxisType() == caCartesianPlot::log10) XaxisType->setCurrentIndex(1);
+    else XaxisType->setCurrentIndex(2);
 
     // add all to layout
     Layout->addWidget(xLabel,    0, 0);
@@ -136,7 +140,7 @@ limitsCartesianplotDialog::limitsCartesianplotDialog(caCartesianPlot *w, MutexKn
     else if(CartesianPlot->getYscaling() == caCartesianPlot::Channel) yComboBox->setCurrentIndex(1);
     else if(CartesianPlot->getYscaling() == caCartesianPlot::User) yComboBox->setCurrentIndex(2);
 
-    QLabel *yaxisPresent = new QLabel("axe visible");
+    QLabel *yaxisPresent = new QLabel("axis visible");
 
     yCheckBox = new QCheckBox();
     yCheckBox->setChecked(CartesianPlot->getYaxisEnabled());
@@ -217,6 +221,7 @@ void limitsCartesianplotDialog::applyClicked()
     int indx = XaxisType->currentIndex();
     if(indx == 0) CartesianPlot->setXaxisType(caCartesianPlot::linear);
     else if(indx == 1) CartesianPlot->setXaxisType(caCartesianPlot::log10);
+    else if(indx == 2) CartesianPlot->setXaxisType(caCartesianPlot::time);
 
     int indy = YaxisType->currentIndex();
     if(indy == 0) CartesianPlot->setYaxisType(caCartesianPlot::linear);
@@ -233,7 +238,7 @@ void limitsCartesianplotDialog::applyClicked()
         xLimits = xmin; xLimits.append(";"); xLimits.append(xmax);
     } else {
         xLimits = CartesianPlot->getXaxisLimits();
-        list = xLimits.split(";", QString::SkipEmptyParts);
+        list = xLimits.split(";", SKIP_EMPTY_PARTS);
         xminLineEdit->setText(list.at(0));
         xmaxLineEdit->setText(list.at(1));
     }
@@ -246,7 +251,7 @@ void limitsCartesianplotDialog::applyClicked()
         yLimits = ymin; yLimits.append(";"); yLimits.append(ymax);
     } else {
         yLimits = CartesianPlot->getYaxisLimits();
-        list = yLimits.split(";", QString::SkipEmptyParts);
+        list = yLimits.split(";", SKIP_EMPTY_PARTS);
         yminLineEdit->setText(list.at(0));
         ymaxLineEdit->setText(list.at(1));
     }
@@ -262,13 +267,14 @@ void limitsCartesianplotDialog::applyClicked()
         QStringList vars = pvs.split(";");
         if((vars.size()== 2) || (vars.at(0).trimmed().length() > 0)) {
             knobData *kPtr = monData->getMutexKnobDataPV(CartesianPlot, vars.at(0).trimmed());
-             if(kPtr != (knobData*) 0) {
+             if(kPtr != (knobData*) Q_NULLPTR) {
                 if(kPtr->edata.lower_disp_limit != kPtr->edata.upper_disp_limit) {
                     qDebug() << "set to channel limits" << kPtr->edata.lower_disp_limit << kPtr->edata.upper_disp_limit;
                     CartesianPlot->setScaleX(kPtr->edata.lower_disp_limit, kPtr->edata.upper_disp_limit);
                 } else {
                     //qDebug() << "set to auto";
                     CartesianPlot->setXscaling(caCartesianPlot::Auto);
+                    m_channelScalingWasReset = true;
                 }
              }
         }
@@ -289,13 +295,14 @@ void limitsCartesianplotDialog::applyClicked()
         QStringList vars = pvs.split(";");
         if((vars.size()== 2) || (vars.at(1).trimmed().length() > 0)) {
             knobData *kPtr = monData->getMutexKnobDataPV(CartesianPlot, vars.at(1).trimmed());
-             if(kPtr != (knobData*) 0) {
+             if(kPtr != (knobData*) Q_NULLPTR) {
                 if(kPtr->edata.lower_disp_limit != kPtr->edata.upper_disp_limit) {
                     //qDebug() << "set to channel limits" << kPtr->edata.lower_disp_limit << kPtr->edata.upper_disp_limit;
                     CartesianPlot->setScaleY(kPtr->edata.lower_disp_limit, kPtr->edata.upper_disp_limit);
                 } else {
                     //qDebug() << "set to auto";
                     CartesianPlot->setYscaling(caCartesianPlot::Auto);
+                    m_channelScalingWasReset = true;
                 }
              }
         }

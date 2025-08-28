@@ -38,7 +38,9 @@
 #include <qnumeric.h>
 //#include <QMetaEnum>
 #if defined(_MSC_VER)
-  #define snprintf _snprintf
+    #ifndef snprintf
+     #define snprintf _snprintf
+    #endif
 #endif
 
 
@@ -496,7 +498,7 @@ void caThermo::paintValue(QPainter *painter, QRect valueRect) const
         painter->drawText( valueRect, Qt::AlignCenter, label );
     } else {
         QFontMetrics fm(font());
-        int w = fm.width(label);
+        int w = QMETRIC_QT456_FONT_WIDTH(fm,label);
         int h = fm.height();
         switch (this->scalePosition()) {
         case LeftScale:
@@ -529,24 +531,24 @@ void caThermo::setFormat(int prec)
     switch (thisFormatType) {
     case decimal:
         if(precision >= 0) {
-            sprintf(thisFormat, "%s.%dlf", "%", precision);
+            snprintf(thisFormat,SMALL_STRING_LENGTH, "%s.%dlf", "%", precision);
         } else {
-            sprintf(thisFormat, "%s.%dle", "%", -precision);
+            snprintf(thisFormat,SMALL_STRING_LENGTH, "%s.%dle", "%", -precision);
         }
         break;
     case compact:
-        sprintf(thisFormat, "%s.%dle", "%", qAbs(precision));
-        sprintf(thisFormatC, "%s.%dlf", "%", qAbs(precision));
+        snprintf(thisFormat,SMALL_STRING_LENGTH, "%s.%dle", "%", qAbs(precision));
+        snprintf(thisFormatC,SMALL_STRING_LENGTH, "%s.%dlf", "%", qAbs(precision));
         break;
     case exponential:
     case engr_notation:
-        sprintf(thisFormat, "%s.%dle", "%", qAbs(precision));
+        snprintf(thisFormat,SMALL_STRING_LENGTH, "%s.%dle", "%", qAbs(precision));
         break;
     case truncated:
-        strcpy(thisFormat, "%d");
+        qstrncpy(thisFormat, "%d",SMALL_STRING_LENGTH);
         break;
     default:
-        sprintf(thisFormat, "%s.%dlf", "%", precision);
+        snprintf(thisFormat,SMALL_STRING_LENGTH, "%s.%dlf", "%", precision);
     }
 
 }
@@ -572,8 +574,11 @@ QString caThermo::setScaleLabel(double value) const
     if(qIsNaN(value)){
       snprintf(asc, MAX_STRING_LENGTH,  "nan");
     }
-
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     label = QString::fromAscii(asc);
+#else
+    label = QString::fromLatin1(asc);
+#endif
 
     return label;
 }

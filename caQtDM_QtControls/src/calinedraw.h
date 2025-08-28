@@ -94,7 +94,7 @@ public:
     void getWidgetInfo(QString* pv, int& nbPV, int& limitsDefault, int& precMode, int& limitsMode,
                                     int& Precision, char* colMode, double& limitsMax, double& limitsMin);
     void createContextMenu(QMenu& menu);
-    QString getDragText(){ return "hello"; }
+    QString getDragText() { return getPV();}
     // caWidgetInterface implementation finish
 
     // other stuff
@@ -168,6 +168,9 @@ public:
     void setFormatString(const QString m) { thisFormatUserString = m; }
     QString getFormatString() {return thisFormatUserString;}
 
+signals:
+    void textChanged(QString);
+
 public slots:
     void animation(QRect p) {
 #include "animationcode.h"
@@ -202,7 +205,7 @@ private:
     SourceMode m_LimitsMode;
     FormatType m_FormatType;
     QString m_Text;
-    char m_Format[20];
+    char m_Format[MAX_STRING_LENGTH];
     char m_FormatC[20];
     short m_AlarmState;
     QColor m_bgAtInitLast;

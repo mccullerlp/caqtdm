@@ -53,6 +53,17 @@ caCalc::caCalc( QWidget *parent ) :  ESimpleLabel(parent)
 
     thisEventSignal = Never;
     eventFired = false;
+    checkSignal_value_bool=false;
+    checkSignal_value_int=0;
+    checkSignal_value_double=0.0;
+    changeValue_value_double=0.0;
+    checkSignal_value_QRect=QRect();
+    checkSignal_value_QRectF=QRectF();
+    for (int i=0;i<4;i++){
+        value_QRect_F_const[i]=0;
+        value_QRect_F_is_const[i]=false;
+    }
+    is_a_pure_constant=false;
 }
 
 void caCalc::setValue(double value)
@@ -77,9 +88,24 @@ void caCalc::setValue(double value)
         }
         eventFired = true;
     } else if(thisEventSignal == onAnyChange) {
-        emit emitSignal((int) value);
         emit emitSignal(value);
-        emit emitSignal((bool) value);
+
+        if (fabs(checkSignal_value_double-value)>std::numeric_limits<double>::epsilon()*10){
+            //qDebug()<<"reduced_emitSignal"<<checkSignal_value_double<<value<< this ;
+            checkSignal_value_double=value;
+            emit reduced_emitSignal(value);
+
+        }
+
+        if ((!eventFired)||(checkSignal_value_int!=(int) value)){
+            checkSignal_value_int = (int) value;
+            emit emitSignal((int) value);
+        }
+        if ((!eventFired)||(checkSignal_value_bool!=(bool) value)){
+            checkSignal_value_bool = (bool) value;
+            emit emitSignal((bool) value);
+        }
+        eventFired = true;
     } else if(thisEventSignal == TriggerZeroToOne) {
         if((qRound(thisValue) == 0) && (qRound(value) == 1)) {
             emit emitSignal((int) value);
@@ -97,7 +123,11 @@ void caCalc::setValue(double value)
     //printf("%s emit change value %f\n", qasc(objectName()), value);
     // only in case of a change where no calculation takes places, will we update
     // the data container with the actual value
-    if(thisCalc.trimmed().size() == 0) emit changeValue(value);
+    if(thisCalc.trimmed().size() == 0)
+        if (fabs(changeValue_value_double-value)>std::numeric_limits<double>::epsilon()*10){
+            changeValue_value_double=value;
+            emit changeValue(value);
+        }
 }
 
 void caCalc::setValue(QString value)
@@ -107,7 +137,32 @@ void caCalc::setValue(QString value)
 
 void caCalc::setValue(QRect value)
 {
-    setTextLine("QRect=ok");
+    for (int i=0;i<4;i++){
+      if (value_QRect_F_is_const[i]){
+        switch(i){
+            case 0:{
+            value.setX(static_cast<int>(value_QRect_F_const[i]));
+               break;
+            }
+            case 1:{
+               value.setY(static_cast<int>(value_QRect_F_const[i]));
+               break;
+            }
+            case 2:{
+               value.setWidth(static_cast<int>(value_QRect_F_const[i]));
+               break;
+            }
+            case 3:{
+               value.setHeight(static_cast<int>(value_QRect_F_const[i]));
+               break;
+            }
+        }
+      }
+    }
+    if (is_a_pure_constant)
+        setTextLine("QRect=const");
+    else
+        setTextLine("QRect=ok");
 
     // emit signal when requested
     if(thisEventSignal == onFirstChange) {
@@ -116,10 +171,79 @@ void caCalc::setValue(QRect value)
         }
         eventFired = true;
     } else if(thisEventSignal == onAnyChange) {
-        emit emitSignal(value);
+        if (is_a_pure_constant||(!eventFired)||(checkSignal_value_QRect!= value)){
+            emit emitSignal(value);
+            checkSignal_value_QRect=value;
+        }
+        eventFired = true;
+        thisValue =0;
     }
-    thisValue =0;
 }
+
+void caCalc::setValue(QRectF value)
+{
+    for (int i=0;i<4;i++){
+        if (value_QRect_F_is_const[i]){
+            switch(i){
+            case 0:{
+               value.setX(value_QRect_F_const[i]);
+               break;
+            }
+            case 1:{
+               value.setY(value_QRect_F_const[i]);
+               break;
+            }
+            case 2:{
+               value.setWidth(value_QRect_F_const[i]);
+               break;
+            }
+            case 3:{
+               value.setHeight(value_QRect_F_const[i]);
+               break;
+            }
+            }
+        }
+    }
+    if (is_a_pure_constant)
+        setTextLine("QRectF=const");
+    else
+        setTextLine("QRectF=ok");
+
+    // emit signal when requested
+    if(thisEventSignal == onFirstChange) {
+        if(!eventFired) {
+            emit emitSignal(value);
+        }
+        eventFired = true;
+    } else if(thisEventSignal == onAnyChange) {
+        if (is_a_pure_constant||(!eventFired)||(checkSignal_value_QRect!= value)){
+            emit emitSignal(value);
+            checkSignal_value_QRectF=value;
+        }
+        eventFired = true;
+        thisValue =0;
+    }
+}
+
+void caCalc::setValue(int value)
+{
+    Q_UNUSED(value)
+    double data=(int) value;
+    QRect empty;
+    setValue(empty);
+    setValue(QRectF(empty));
+    setValue(data);
+}
+
+void caCalc::setValue(bool value)
+{
+    QRect empty;
+    setValue(empty);
+    setValue(QRectF(empty));
+    int data=(int) value;
+    setValue((double) data);
+}
+
 
 void caCalc::setTextLine(const QString &txt)
 {
@@ -131,10 +255,41 @@ void caCalc::setTextLine(const QString &txt)
     keepText = txt;
 }
 
+
 void caCalc::setBackground(QColor c)
 {
     m_BackColor = c;
     setForeAndBackground(m_ForeColor, m_BackColor);
+}
+
+void caCalc::setQRectParam(int x, double param)
+{
+    if (x<MAX_QRECT_PARAMS){
+        value_QRect_F_const[x]=param;
+        switch(x){
+            case 0:{
+               value_QRect_F_is_const[x]=thisChannelA.isEmpty();
+               break;
+            }
+            case 1:{
+               value_QRect_F_is_const[x]=thisChannelB.isEmpty();
+               break;
+            }
+            case 2:{
+               value_QRect_F_is_const[x]=thisChannelC.isEmpty();
+               break;
+            }
+            case 3:{
+               value_QRect_F_is_const[x]=thisChannelD.isEmpty();
+               break;
+            }
+        }
+        is_a_pure_constant=true;
+        for (int i=0;i<4;i++){
+            is_a_pure_constant&=value_QRect_F_is_const[i];
+        }
+    }
+
 }
 
 void caCalc::setForeground(QColor c)

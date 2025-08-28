@@ -44,9 +44,8 @@ caRowColMenu::caRowColMenu(QWidget *parent) : QWidget(parent)
 
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     grid = new QGridLayout(this);
-    grid->setMargin(0);
+    SETMARGIN_QT456(grid,0);
     grid->setSpacing(2);
-
     thisForeColor = Qt::black;
 
     thisBackColor = Qt::gray;
@@ -59,7 +58,7 @@ caRowColMenu::caRowColMenu(QWidget *parent) : QWidget(parent)
     cellsP.clear();
     cellsI.clear();
     signalMapper = new QSignalMapper(this);
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < MAXITEMS; i++) {
         EPushButton* temp =  new EPushButton(QString::number(i), this);
         temp->setFontScaleMode(thisScaleMode);
         temp->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -68,7 +67,11 @@ caRowColMenu::caRowColMenu(QWidget *parent) : QWidget(parent)
         cellsP.append(temp);
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     connect(signalMapper, SIGNAL(mapped(int)),this, SIGNAL(clicked(int)));
+#else
+    connect(signalMapper, SIGNAL(mappedInt(int)),this, SIGNAL(clicked(int)));
+#endif
 
     setStacking(Row);
 

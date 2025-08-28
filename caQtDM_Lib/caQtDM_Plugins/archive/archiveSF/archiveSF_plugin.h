@@ -116,16 +116,35 @@ public slots:
         fromArchive = new sfRetrieval();
 
         //qDebug() << "fromArchive pointer=" << fromArchive << indexNew.timeAxis;
+        bool readdata_ok=fromArchive->requestUrl(url, json_str, indexNew.secondsPast, isBinned, indexNew.timeAxis, key);
 
-        if(fromArchive->requestUrl(url, json_str, indexNew.secondsPast, isBinned, indexNew.timeAxis, key)) {
+        if (fromArchive->is_Redirected()){
+          url=QUrl(fromArchive->getRedirected_Url());
+          // Messages in case of a redirect and set the widget to the correct location
+          // with a reload of the panel this information get lost.
+          // the url storage location is the dynamic property of the widget
+          QString mess("ArchiveSF plugin -- redirect: ");
+          mess.append(key);
+          mess.append(" to ");
+          mess.append(url.toString());
+          messageWindow->postMsgEvent(QtWarningMsg, (char*) qasc(mess));
+          indexNew.w->setProperty("archiverIndex",QVariant(url.toString()));
+          //qDebug()<< "archiv PV"<<indexNew.pv;
+          fromArchive->deleteLater();
+          fromArchive = new sfRetrieval();
+          readdata_ok=fromArchive->requestUrl(url, json_str, indexNew.secondsPast, isBinned, indexNew.timeAxis, key);
+        }
+
+        if(readdata_ok) {
             if((nbVal = fromArchive->getCount()) > 0) {
                 //qDebug() << nbVal << total;
                 TimerN.resize(fromArchive->getCount());
                 YValsN.resize(fromArchive->getCount());
                 fromArchive->getData(TimerN, YValsN);
             }
+
         } else {
-            if(messageWindow != (MessageWindow *) 0) {
+            if(messageWindow != (MessageWindow *) Q_NULLPTR) {
                 QString mess("ArchiveSF plugin -- lastError: ");
                 mess.append(fromArchive->lastError());
                 mess.append(" for pv: ");
@@ -157,27 +176,27 @@ private:
 
 };
 
-class Q_DECL_EXPORT myThread : public QThread
+class Q_DECL_EXPORT WorkerSfThread : public QThread
 {
     Q_OBJECT
 
 public:
-    myThread(WorkerSF *worker) {
+    WorkerSfThread(WorkerSF *worker) {
         pworker = worker;
         //qDebug() << "myThread::myThread()";
     }
-    ~myThread() {
         //qDebug() << "myThread::~myThread()";
+    ~WorkerSfThread() {
     }
     WorkerSF *workersf() {
         return pworker;
     }
 
     sfRetrieval *getArchive() {
-        if(pworker != (WorkerSF *) 0) {
+        if(pworker != (WorkerSF *) Q_NULLPTR) {
             return pworker->getArchive();
         } else {
-            return (sfRetrieval *) 0;
+            return (sfRetrieval *) Q_NULLPTR;
         }
     }
 
@@ -231,7 +250,7 @@ private:
     MutexKnobData *mutexknobdataP;
     MessageWindow *messagewindowP;
     ArchiverCommon *archiverCommon;
-    QMap<QString, myThread*> listOfThreads;
+    QMap<QString, WorkerSfThread*> listOfThreads;
     bool suspend;
 };
 

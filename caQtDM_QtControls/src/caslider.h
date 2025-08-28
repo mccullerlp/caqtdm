@@ -26,6 +26,13 @@
 #ifndef CASLIDER_H
 #define CASLIDER_H
 
+#if defined(_MSC_VER)
+ #define QWT_DLL
+#endif
+
+#include <QtCore>
+#include <limits>
+
 #include <qtcontrols_global.h>
 #include <qwt_slider.h>
 #include <qwt_scale_draw.h>
@@ -179,6 +186,10 @@ public slots:
 
 public slots:
     void setSliderValue(double const &value);
+    void set_Max_Value(int max);
+    void set_Max_Value(double max);
+    void set_Min_Value(int min);
+    void set_Min_Value(double min);
 
 private slots:
     void repeater();
@@ -213,8 +224,8 @@ private:
     int thisPrecision;
     SourceMode thisPrecMode;
     FormatType thisFormatType;
-    char thisFormat[20];
-    char thisFormatC[20];
+    char thisFormat[SMALL_STRING_LENGTH];
+    char thisFormatC[SMALL_STRING_LENGTH];
     bool thisScaleValueEnabled;
     QString thisStyle, oldStyle;
 

@@ -35,7 +35,9 @@
    #else
       #define CAQTDM_LIBSHARED_EXPORT __declspec(dllimport)
    #endif
-   #define snprintf _snprintf
+   # if _MSC_VER < 1900
+    #define snprintf _snprintf
+   #endif
 #else
  #if defined(__MINGW32__)
     #if defined(CAQTDM_LIB_LIBRARY)
@@ -52,6 +54,18 @@
  #endif
 #endif
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+// Because QtInfoMsg doesnt exist there.
+#define QtInfoMsg QtWarningMsg
+
+#ifndef Q_NULLPTR
+#if __cplusplus >= 201103L
+    #define Q_NULLPTR nullptr
+#else
+    #define Q_NULLPTR 0
+#endif
+#endif
+#endif
 // in order to correctly define for c and c++ (no mismatched tags)
 #ifdef __cplusplus
 typedef class MessageWindow MessageWindow;

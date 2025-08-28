@@ -37,7 +37,7 @@ class QTCON_EXPORT caRelatedDisplay : public caRowColMenu
 
     Q_PROPERTY(Stacking stackingMode READ getStacking WRITE setStacking)
     Q_PROPERTY(QStringList removeParentList READ getRemoveList WRITE setRemoveList STORED false)
-    Q_PROPERTY(QString removeParent READ getReplaceModes WRITE setReplaceModes DESIGNABLE inactiveButVisible())
+    Q_PROPERTY(QString removeParent READ getReplaceModes WRITE setReplaceModes DESIGNABLE false)
     Q_PROPERTY(QPoint displayPosition READ getPosition WRITE setPosition)
 
     // this will prevent user interference
@@ -66,6 +66,30 @@ public slots:
 
     void hideObject(bool hideit) {
 #include "hideobjectcode.h"
+    }
+    void trigger0() {
+        emit triggered(0);
+    }
+    void trigger1() {
+        emit triggered(1);
+    }
+    void trigger2() {
+        emit triggered(2);
+    }
+    void trigger3() {
+        emit triggered(3);
+    }
+    void trigger4() {
+        emit triggered(4);
+    }
+    void trigger5() {
+        emit triggered(5);
+    }
+    void trigger6() {
+        emit triggered(6);
+    }
+    void trigger7() {
+        emit triggered(7);
     }
 
 private:

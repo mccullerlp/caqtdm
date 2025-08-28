@@ -5,11 +5,9 @@ echo ===========================================================================
 if "%CAQTDM_GENERAL_COMPILATION%"=="1" GOTO :clean
 call caQtDM_Env.bat
 
-rem call "C:\Program files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat" x86
-rem set QMAKESPEC=%QTHOME%\mkspecs\win32-msvc2013
 set PATH=%PATH%;%QTHOME%\bin
 
-echo package will be removed from .\caQtDM_Binaries and all directories will be cleaned up
+echo %CAQTDM_COLLECT% will be removed and all directories will be cleaned up
 
 echo Press [Enter] key to start cleanup
 :clean
@@ -17,6 +15,7 @@ echo ========== remove binaries from directories ============
 qmake all.pro
 where /q jom.exe 
 IF %ERRORLEVEL% NEQ 0 (nmake clean) ELSE (jom clean)
+rmdir /S /Q %CAQTDM_COLLECT%
 
 
 echo ========== remove makefiles from directories ============
@@ -32,12 +31,21 @@ del .\caQtDM_Lib\caQtDM_Plugins\demo\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\bsread\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\epics3\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\epics4\Makefile*
+del .\caQtDM_Lib\caQtDM_Plugins\modbus\Makefile*
+del .\caQtDM_Lib\caQtDM_Plugins\gps\Makefile*
+del .\caQtDM_Lib\caQtDM_Plugins\environment\Makefile*
+
+
 
 del .\caQtDM_Lib\caQtDM_Plugins\archive\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\archive\archiveSF\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\archive\archiveHIPA\Makefile*
+del .\caQtDM_Lib\caQtDM_Plugins\archive\archiveHTTP\Makefile*
 del .\caQtDM_Lib\caQtDM_Plugins\archive\archivePro\Makefile*
 
+del .\caQtDM_Parsers\Makefile*
+del .\caQtDM_Parsers\adlParserSharedLib\Makefile*
+del .\caQtDM_Parsers\adlParserStaticLib\Makefile*
 
 
 del .\caQtDM_QtControls\Makefile*
@@ -72,14 +80,24 @@ rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\epics4\release
 rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\epics4\debug
 rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\epics4\moc
 
+rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\archive\archiveHTTP\release
+rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\archive\archiveHTTP\debug
+rmdir /S /Q .\caQtDM_Lib\caQtDM_Plugins\archive\archiveHTTP\moc
+
+rmdir /S /Q .\caQtDM_Parsers\adlParserSharedLib\release
+rmdir /S /Q .\caQtDM_Parsers\adlParserSharedLib\debug
+rmdir /S /Q .\caQtDM_Parsers\adlParserSharedLib\moc
+
+rmdir /S /Q .\caQtDM_Parsers\adlParserStaticLib\release
+rmdir /S /Q .\caQtDM_Parsers\adlParserStaticLib\debug
+rmdir /S /Q .\caQtDM_Parsers\adlParserStaticLib\moc
+
 rmdir /S /Q .\caQtDM_QtControls\release
 rmdir /S /Q .\caQtDM_QtControls\debug
 rmdir /S /Q .\caQtDM_QtControls\moc
 
 rmdir /S /Q .\caQtDM_QtControls\plugins\release
 rmdir /S /Q .\caQtDM_QtControls\plugins\debug
-
-rem rmdir /S /Q .\caQtDM_Binaries
 
 echo =========== remove package files ==================
 

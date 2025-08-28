@@ -26,6 +26,12 @@
 #ifndef MUTEXKNOBDATA_H
 #define MUTEXKNOBDATA_H
 
+#if defined(_MSC_VER)
+ //to avoid macro redefinition
+ #define _MATH_DEFINES_DEFINED
+ #include <math.h>
+#endif
+
 
 #include "caQtDM_Lib_global.h"
 
@@ -35,6 +41,7 @@
 #include <QObject>
 #include <QVector>
 #include <QMap>
+#include <QPair>
 #include <QWaitCondition>
 #include "knobData.h"
 #include "mutexKnobDataWrapper.h"
@@ -84,8 +91,10 @@ public:
     void initHighestCountPV();
 
     void UpdateMechanism(UpdateType Type);
+    QString SoftPV_Name(QString pv, QWidget *w);
 
-    void BlockProcessing(bool block) { blockProcess= block;}
+    bool getSuppressUpdates() const;
+    void setSuppressUpdates(bool newSuppressUpdates);
 
 signals:
 
@@ -115,8 +124,13 @@ private:
     int nbDisplayCountPerSecond, displayCount;
     struct timeb last;
 
-    bool blockProcess;
-
+    bool suppressUpdates;
     UpdateType myUpdateType;
+
+    bool doDefaultUnitReplacements;
+    QList<QPair<QString,QString> > createUnitReplacementPairList(QStringList replaceUnitsList);
+    QList<QPair<QString,QString> > defaultReplaceUnitsPairList;
+    QList<QPair<QString,QString> > replaceUnitsPairList;
+    QStringList createUnitReplacementList();
 };
 #endif // MUTEXKNOBDATA_H

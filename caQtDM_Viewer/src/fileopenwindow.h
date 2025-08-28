@@ -44,6 +44,7 @@
 #ifdef MOBILE
 #include <QGuiApplication>
 #endif
+
 #ifndef MOBILE
 #include "myQProcess.h"
 #endif
@@ -98,6 +99,7 @@
                     bool attach = false, bool minimize = false, QString geometry = "", bool printscreen = false, bool resizing = true,
                     QMap<QString, QString> options = (QMap<QString, QString>()));
 
+     ~FileOpenWindow();
      QMainWindow *loadMainWindow(const QPoint &position, const QString &fileS, const QString &macroS, const QString &resizeS,
                                          const bool &printexit, const bool &moveit, const bool &centerwindow);
      bool isRunning();
@@ -112,6 +114,10 @@
      void setAllEnvironmentVariables(const QString &fileName);
      void parseConfigFile(const QString &filename, QList<QString> &urls, QList<QString> &files);
      void saveConfigFile(const QString &filename, QList<QString> &urls, QList<QString> &files);
+
+
+     QString getStatusBarContents();
+     QString getLogFilePath();
 
 
      void MSQ_getPtrs(int &front, int &rear) {
@@ -225,6 +231,7 @@
      void Callback_EmptyCache();
      void Callback_OpenNewFile(const QString&, const QString&, const QString&, const QString&);
      void checkForMessage();
+     void onReloadTimeout();
      void Callback_PVwindowExit();
 
 #if QT_VERSION > 0x050000
@@ -248,6 +255,9 @@ public slots:
      void Callback_ReloadAllWindows();
 
 protected:
+#ifdef MOBILE
+     virtual bool event(QEvent *);
+#endif
      virtual void timerEvent(QTimerEvent *e);
      Qt::GestureType fingerSwipeGestureType;
      bool eventFilter(QObject *obj, QEvent *event);
@@ -256,11 +266,13 @@ signals:
    void messageAvailable(QString message);
 
 private:
-
+   void setDirectUpdateTypeOnRestart(const QDateTime);
      void closeEvent(QCloseEvent* ce);
      void FlushAllInterfaces();
      void TerminateAllInterfaces();
      void reload(QWidget *w);
+     long long getAvailableMemory();
+
      QMainWindow *lastWindow;
      QString lastMacro, lastFile, lastGeometry, lastResizing;
      Ui::MainWindow ui;
@@ -300,6 +312,7 @@ private:
      int rear;
      _blop empty;
 
+     QDateTime lastReloadTime;
  };
 
  #endif

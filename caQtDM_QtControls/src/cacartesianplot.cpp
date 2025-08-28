@@ -15,12 +15,12 @@
  *  You should have received a copy of the GNU General Public License
  *  along with the caQtDM Framework.  If not, see <http://www.gnu.org/licenses/>.
  *
- *  Copyright (c) 2010 - 2014
+ *  Copyright (c) 2010 - 2024
  *
- *  Author:
- *    Anton Mezger
+ *  Authors:
+ *    Anton Mezger, Erik Schwarz
  *  Contact details:
- *    anton.mezger@psi.ch
+ *    erik.schwarz@psi.ch
  */
 
 #if defined(_MSC_VER)
@@ -30,120 +30,8 @@
 #endif
 
 #include "cacartesianplot.h"
+#include "plotHelperClasses.h"
 #include <QtCore>
-
-#if QWT_VERSION >= 0x060100
-class PlotScaleDateEngine: public QwtDateScaleEngine
-{
-public:
-
-    PlotScaleDateEngine(const int &nb, Qt::TimeSpec time): QwtDateScaleEngine(time)
-    {
-        nbTicks = nb;
-    }
-
-    virtual QwtScaleDiv divideScale( double x1, double x2, int , int , double) const
-    {
-        QList<double> Ticks[QwtScaleDiv::NTickTypes];
-        const QwtInterval interval = QwtInterval( x1, x2 ).normalized();
-
-        if (interval.width() <= 0 ) return QwtScaleDiv();
-
-        QwtScaleDiv scaleDiv;
-
-        for (int i=0; i<nbTicks+1; i++) {
-            Ticks[QwtScaleDiv::MajorTick] << x1 + ((x2-x1)*i / nbTicks);
-        }
-
-        scaleDiv = QwtScaleDiv(interval, Ticks);
-        if ( x1 > x2 ) scaleDiv.invert();
-
-        return scaleDiv;
-    }
-
-private:
-    int nbTicks;
-};
-#endif
-
-class PlotScaleEngine: public QwtLinearScaleEngine
-{
-public:
-
-    PlotScaleEngine(const int &nb): QwtLinearScaleEngine()
-    {
-        nbTicks = nb;
-    }
-
-    virtual QwtScaleDiv divideScale( double x1, double x2, int , int , double) const
-    {
-        QList<double> Ticks[QwtScaleDiv::NTickTypes];
-        const QwtInterval interval = QwtInterval( x1, x2 ).normalized();
-
-        if (interval.width() <= 0 ) return QwtScaleDiv();
-
-        QwtScaleDiv scaleDiv;
-
-        for (int i=0; i<nbTicks+1; i++) {
-            Ticks[QwtScaleDiv::MajorTick] << x1 + ((x2-x1)*i / nbTicks);
-        }
-
-        scaleDiv = QwtScaleDiv(interval, Ticks);
-        if ( x1 > x2 ) scaleDiv.invert();
-
-        return scaleDiv;
-    }
-
-private:
-    int nbTicks;
-};
-
-class MyZoomer: public QwtPlotZoomer
-{
-public:
-    MyZoomer(QwtPlotCanvas *canvas):
-        QwtPlotZoomer(canvas)
-    {
-        setTrackerMode(AlwaysOn);
-    }
-
-    virtual QwtText trackerTextF(const QPointF &pos) const
-    {
-        QColor bg(Qt::white);
-        bg.setAlpha(200);
-
-        QwtText text("(" + QString::number(pos.x()) + "," + QString::number(pos.y()) + ") ");
-        text.setBackgroundBrush( QBrush( bg ));
-        return text;
-    }
-};
-
-#ifdef QWT_USE_OPENGL
-class GLCanvas: public QwtPlotGLCanvas
-{
-public:
-    GLCanvas( QwtPlot *parent = NULL ):
-        QwtPlotGLCanvas( parent )
-    {
-        setContentsMargins( 1, 1, 1, 1 );
-    }
-
-protected:
-    virtual void paintEvent( QPaintEvent *event )
-    {
-        QPainter painter( this );
-        painter.setClipRegion( event->region() );
-
-        QwtPlot *plot = qobject_cast< QwtPlot *>( parent() );
-        if ( plot )
-            plot->drawCanvas( &painter );
-
-        painter.setPen( palette().foreground().color() );
-        painter.drawRect( rect().adjusted( 0, 0, -1, -1 ) );
-    }
-
-};
-#endif
 
 caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
 {
@@ -152,11 +40,13 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
            "You can pan by dragging with the middle mouse button.\n"
            "Choose reset zoom in the context menu for original scale.\n ";
 
-
     lgd = new QwtLegend;
 
     thisToBeTriggered = false;
     thisTriggerNow = true;
+    thisTriggerPV = "";
+    thisErasePV = "";
+    thisCountPV = "";
     thisCountNumber = 0;
     thisXaxisSyncGroup = 0;
     thisXticks = 5;
@@ -186,7 +76,7 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
     // canvas
 
 #if QWT_VERSION < 0x060100
-    zoomer = new MyZoomer(canvas());
+    zoomer = new PlotZoomer(canvas());
     QwtPlotPanner *panner = new QwtPlotPanner(canvas());
 #else
 #ifdef QWT_USE_OPENGL
@@ -194,10 +84,10 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
     GLCanvas *canvas = new GLCanvas();
     canvas->setPalette( QColor( "khaki" ) );
     setCanvas(canvas);
-    zoomer = new MyZoomer( (QwtPlotCanvas *) canvas);
+    zoomer = new PlotZoomer( (QwtPlotCanvas *) canvas);
 #else
     QwtPlotCanvas *canvas =  (QwtPlotCanvas *) this->canvas();
-    zoomer = new MyZoomer( (QwtPlotCanvas *) canvas);
+    zoomer = new PlotZoomer( (QwtPlotCanvas *) canvas);
 #endif
     QwtPlotPanner *panner = new QwtPlotPanner(canvas);
 #endif
@@ -205,16 +95,27 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
     panner->setAxisEnabled(QwtPlot::yRight, false);
     panner->setAxisEnabled(QwtPlot::yLeft, true);
     panner->setAxisEnabled(QwtPlot::xBottom, true);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     panner->setMouseButton(Qt::MidButton);
+#else
+    panner->setMouseButton(Qt::MiddleButton);
+#endif
 
-    const QColor c(Qt::red);
+
+
+        const QColor c(Qt::red);
    zoomer->setRubberBandPen(c);
-   zoomer->setTrackerPen(c);
+   zoomer->setTrackerMode(QwtPicker::AlwaysOff);
+   plotPicker = new DynamicPlotPicker(this->xBottom , this->yLeft, QwtPicker::CrossRubberBand, QwtPicker::AlwaysOff, this->canvas());
+   plotPicker->setTrackerMode(QwtPicker::AlwaysOn);
    zoomer->setMousePattern(QwtEventPattern::MouseSelect2,Qt:: NoButton);
    zoomer->setMousePattern(QwtEventPattern::MouseSelect3,Qt:: NoButton);
    zoomer->setMousePattern(QwtEventPattern::MouseSelect4,Qt:: NoButton);
    zoomer->setMousePattern(QwtEventPattern::MouseSelect5,Qt:: NoButton);
    zoomer->setMousePattern(QwtEventPattern::MouseSelect6,Qt:: NoButton);
+
+   connect(zoomer, SIGNAL(zoomed(const QRectF&)), this, SLOT(handleZoomedRect(const QRectF&)));
+
 
     // curves
     for(int i=0; i < curveCount; i++) {
@@ -249,9 +150,11 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
     setColor_5(Qt::green);
     setColor_6(Qt::magenta);
 
-    thisLegendshow = false;
+    setLegendEnabled(false);
     setXaxisEnabled(true);
     setYaxisEnabled(true);
+    setXaxisType(axisType::linear);
+    setYaxisType(axisType::linear);
     setXscaling(Auto);
     setYscaling(Auto);
     setXaxisLimits("0;1");
@@ -273,8 +176,19 @@ caCartesianPlot::caCartesianPlot(QWidget *parent) : QwtPlot(parent)
     canvas->setAutoFillBackground( false );   // use in ui file this parameter for transparency
     #endif
 #endif
+    ignorefirst_MinY=true;
+    ignorefirst_MaxY=true;
+    ignorefirst_MinX=true;
+    ignorefirst_MaxX=true;
 
     installEventFilter(this);
+}
+
+caCartesianPlot::~caCartesianPlot()
+{
+    delete plotGrid;
+    delete zoomer;
+    delete lgd;
 }
 
 void caCartesianPlot::updateLegendsPV() {
@@ -300,12 +214,51 @@ void caCartesianPlot::updateLegendsPV() {
 
 void caCartesianPlot::resetZoom() {
     double minX, maxX, minY, maxY;
+    double lowerBoundBefore = axisScaleDiv(xBottom).lowerBound();
+    double upperBoundBefore = axisScaleDiv(xBottom).upperBound();
 
     if(getXLimits(minX, maxX)) setScaleX(minX, maxX);
     if(getYLimits(minY, maxY)) setScaleY(minY, maxY);
     if(thisYscaling == Auto) setAxisAutoScale(yLeft, true);
     if(thisXscaling == Auto) setAxisAutoScale(xBottom, true);
     replot();
+
+    double lowerBoundAfter = axisScaleDiv(xBottom).lowerBound();
+    double upperBoundAfter = axisScaleDiv(xBottom).upperBound();
+
+    // To stop widgets that have the reset zoom signal & slots connected to each other from recursively resetting each other,
+    // check whether the bounds have changed in this reset. If not, no need to emit the signal.
+    if ((lowerBoundBefore == lowerBoundAfter) && (upperBoundBefore == upperBoundAfter)) {
+        // In this case the bounds have NOT changed so stop here.
+        return;
+    }
+    // In this case the bounds have changed so emit the reset zoom signal.
+    emit zoomHasReset();
+}
+
+void caCartesianPlot::setZoom(const QRectF &newZoomRect)
+{
+    QRectF zoomRect = zoomer->zoomRect();
+    if (zoomRect == newZoomRect) {
+        return;
+    }
+    zoomer->zoom(newZoomRect);
+}
+
+void caCartesianPlot::zoomOnXAxis(const QRectF& newZoomRect)
+{
+    QRectF zoomRect = zoomer->zoomRect();
+    if (zoomRect == newZoomRect) {
+        return;
+    }
+    zoomRect.setX(newZoomRect.x());
+    zoomRect.setWidth(newZoomRect.width());
+    zoomer->zoom(zoomRect);
+}
+
+void caCartesianPlot::handleZoomedRect(const QRectF &zoomedRect)
+{
+    emit zoomedToRect(zoomedRect);
 }
 
 void caCartesianPlot::setTriggerPV(QString const &newPV)  {
@@ -480,7 +433,7 @@ void caCartesianPlot::displayData(int curvIndex, int curvType)
         // x scalar, y vector
         } else if(X[curvIndex].size() == 1 && Y[curvIndex].size() > 1) {
             //printf("x scalar, y vector\n" );
-            int nbPoints = Y[curvIndex].size(); 
+            int nbPoints = Y[curvIndex].size();
 #if QT_VERSION < 0x040700
             double aux = X[curvIndex][0];
 #else
@@ -577,6 +530,14 @@ void caCartesianPlot::displayData(int curvIndex, int curvType)
         zoomer->setZoomBase();
 
         replot();
+        if (thisXscaling==Auto){
+            emit getAutoScaleXMin(axisScaleDiv(xBottom).lowerBound());
+            emit getAutoScaleXMax(axisScaleDiv(xBottom).upperBound());
+        }
+        if (thisYscaling==Auto){
+            emit getAutoScaleYMin(axisScaleDiv(yLeft).lowerBound());
+            emit getAutoScaleYMax(axisScaleDiv(yLeft).upperBound());
+        }
     }
 }
 
@@ -601,6 +562,9 @@ void caCartesianPlot::setSamplesData(int index, double *x, double *y, int size, 
                 setXscaling(User); setAxisScale(xBottom, -10.0, 10.0);
                 if(x[i] < SMALLEST) x[i] = SMALLEST;
                 if(x[i] > BIGGEST) x[i] = BIGGEST;
+                emit getAutoScaleXMin(-10.0);
+                emit getAutoScaleXMax(10.0);
+
                 printf("caCartesianPlot::setSamplesData: infinite x value detected, scale set to -10 to 10\n");
                 fflush(stdout);
                 break;
@@ -622,6 +586,8 @@ void caCartesianPlot::setSamplesData(int index, double *x, double *y, int size, 
                 setYscaling(User); setAxisScale(yLeft, -10.0, 10.0);
                 if(y[i] < SMALLEST) y[i] = SMALLEST;
                 if(y[i] > BIGGEST) y[i] = BIGGEST;
+                emit getAutoScaleYMin(-10.0);
+                emit getAutoScaleYMax(10.0);
                 printf("caCartesianPlot::setSamplesData: ininite y value detected, scale set to -10 to 10\n");
                 fflush(stdout);
                 break;
@@ -797,7 +763,12 @@ void caCartesianPlot::setGridsColor(QColor c)
 void caCartesianPlot::setBackgroundColor(QColor c)
 {
     QPalette canvasPalette(c);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     canvasPalette.setColor(QPalette::Foreground, QColor(133, 190, 232));
+#else
+    canvasPalette.setColor(QPalette::WindowText, QColor(133, 190, 232));
+
+#endif
     canvas()->setPalette(canvasPalette);
     replot();
 }
@@ -922,6 +893,11 @@ void caCartesianPlot::setXscaling(axisScaling s)
     thisXscaling = s;
     if(s == Auto) setAxisAutoScale(xBottom, true);
     replot();
+    if(s == Auto){
+        emit getAutoScaleXMin(axisScaleDiv(xBottom).lowerBound());
+        emit getAutoScaleXMax(axisScaleDiv(xBottom).upperBound());
+    }
+
 }
 
 void caCartesianPlot::setYscaling(axisScaling s)
@@ -929,12 +905,16 @@ void caCartesianPlot::setYscaling(axisScaling s)
     thisYscaling = s;
     if(s == Auto) setAxisAutoScale(yLeft, true);
     replot();
+    if(s == Auto){
+        emit getAutoScaleYMin(axisScaleDiv(yLeft).lowerBound());
+        emit getAutoScaleYMax(axisScaleDiv(yLeft).upperBound());
+    }
 }
 
 void caCartesianPlot::setXaxisLimits(QString const &newX)
 {
     bool ok1,ok2;
-    QStringList list = newX.split(";", QString::SkipEmptyParts);
+    QStringList list = newX.split(";", SKIP_EMPTY_PARTS);
 
     if(list.count() == 2) {
         double minX = list.at(0).toDouble(&ok1);
@@ -952,7 +932,7 @@ void caCartesianPlot::setXaxisLimits(QString const &newX)
 void caCartesianPlot::setYaxisLimits(QString const &newY)
 {
     bool ok1,ok2;
-    QStringList list = newY.split(";", QString::SkipEmptyParts);
+    QStringList list = newY.split(";", SKIP_EMPTY_PARTS);
 
     if(list.count() == 2) {
         double minY = list.at(0).toDouble(&ok1);
@@ -1035,8 +1015,16 @@ void caCartesianPlot::setScaleX(double minX, double maxX)
 {
     if(minX == maxX) {
         setAxisScale(xBottom, 0.0, 10.0);
+        if(thisXscaling == Auto){
+            emit getAutoScaleXMin(0.0);
+            emit getAutoScaleXMax(10.0);
+        }
     } else {
         setAxisScale(xBottom, minX, maxX);
+        if(thisXscaling == Auto){
+            emit getAutoScaleXMin(axisScaleDiv(xBottom).lowerBound());
+            emit getAutoScaleXMax(axisScaleDiv(xBottom).upperBound());
+        }
     }
     replot();
 }
@@ -1045,8 +1033,17 @@ void caCartesianPlot::setScaleY(double minY, double maxY)
 {
     if(minY == maxY) {
         setAxisScale(yLeft, 0.0, 10.0);
+        if(thisYscaling == Auto){
+            emit getAutoScaleYMin(0.0);
+            emit getAutoScaleYMax(10.0);
+        }
+
     } else {
         setAxisScale(yLeft, minY, maxY);
+        if(thisYscaling == Auto){
+            emit getAutoScaleYMin(minY);
+            emit getAutoScaleYMax(maxY);
+        }
     }
     replot();
 }
@@ -1054,11 +1051,17 @@ void caCartesianPlot::setScaleY(double minY, double maxY)
 void caCartesianPlot::setXaxisType(axisType s)
 {
     thisXtype = s;
+    // Assume value scale
+    plotPicker->setIsXAxisAlreadyCorrect(true);
+    plotPicker->setIsXAxisTimeSinceEpoch(false);
     if(s == time) {
+        // If it is time, then overwrite it to calculate time from epoch.
+        plotPicker->setIsXAxisAlreadyCorrect(false);
+        plotPicker->setIsXAxisTimeSinceEpoch(true);
 // in qwt6.0 no date/time scale possible
 #if QWT_VERSION >= 0x060100
         // gives an axe for milliseconds since epoch
-        PlotScaleDateEngine *scaleEngine = new PlotScaleDateEngine(thisXticks, Qt::LocalTime); // in number of milliseconds from epoch
+        PlotDateScaleEngine *scaleEngine = new PlotDateScaleEngine(thisXticks, Qt::LocalTime); // in number of milliseconds from epoch
         setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
 
         QwtDateScaleDraw * scaleDraw = new QwtDateScaleDraw();
@@ -1197,7 +1200,7 @@ void caCartesianPlot::setLegendAttribute(QColor c, QFont f, LegendAtttribute SW)
 
         case FONT:
             if(getLegendEnabled()) {
-                if(legend() != (QwtLegend*) 0) {
+                if(legend() != (QwtLegend*) Q_NULLPTR) {
                     QList<QWidget *> list =  legend()->legendItems();
                     for (QList<QWidget*>::iterator it = list.begin(); it != list.end(); ++it ) {
                         QWidget *w = *it;
@@ -1208,7 +1211,7 @@ void caCartesianPlot::setLegendAttribute(QColor c, QFont f, LegendAtttribute SW)
             break;
 
         case COLOR:
-            if(legend() != (QwtLegend*) 0) {
+            if(legend() != (QwtLegend*) Q_NULLPTR) {
                 QList<QWidget *> list =  legend()->legendItems();
                 for (QList<QWidget*>::iterator it = list.begin(); it != list.end(); ++it ) {
                     QWidget *w = *it;
@@ -1241,7 +1244,7 @@ void caCartesianPlot::setLegendAttribute(QColor c, QFont f, LegendAtttribute SW)
             }
 
             QwtLegend *lgd = qobject_cast<QwtLegend *>(legend());
-            if (lgd != (QwtLegend *) 0){
+            if (lgd != (QwtLegend *) Q_NULLPTR){
                 QList<QWidget *> legendWidgets = lgd->legendWidgets(itemToInfo(plt_item));
                 if (legendWidgets.size() == 1) {
                     QwtLegendLabel *b = qobject_cast<QwtLegendLabel *>(legendWidgets[0]);
@@ -1271,6 +1274,94 @@ void caCartesianPlot::setLegendAttribute(QColor c, QFont f, LegendAtttribute SW)
     }
     updateLegend();
 #endif
+
+}
+
+void caCartesianPlot::setMinXResize(double value){
+    double data_minX;
+    double data_maxX;
+    if (fabs(filter_MinX-value)>std::numeric_limits<double>::epsilon()*10){
+        filter_MinX=value;
+        if (!ignorefirst_MinX){
+            setXscaling(User);
+            data_minX=axisScaleDiv(xBottom).lowerBound();
+            data_maxX=axisScaleDiv(xBottom).upperBound();
+            if (fabs(data_minX-value)>std::numeric_limits<double>::epsilon()*10){
+                data_minX=value;
+                setScaleX(data_minX, data_maxX);
+                //qDebug()<< "setMinXResize: "<< data_minX << data_maxX;
+            }
+        }else{
+           ignorefirst_MinX=false;
+        }
+
+    }
+}
+
+void caCartesianPlot::setMaxXResize(double value){
+    double data_minX;
+    double data_maxX;
+    // filter to avoid signal storms witout any use
+    if (fabs(filter_MaxX-value)>std::numeric_limits<double>::epsilon()*10){
+        filter_MaxX=value;
+        if (!ignorefirst_MaxX){
+            setXscaling(User);
+            data_minX=axisScaleDiv(xBottom).lowerBound();
+            data_maxX=axisScaleDiv(xBottom).upperBound();
+            if (fabs(data_maxX-value)>std::numeric_limits<double>::epsilon()*10){
+                data_maxX=value;
+                setScaleX(data_minX, data_maxX);
+                //qDebug()<< "setMaxXResize: "<< data_minX << data_maxX;
+            }
+        }else{
+           ignorefirst_MaxX=false;
+        }
+
+    }
+
+
+}
+
+void caCartesianPlot::setMinYResize(double value){
+    double data_minY;
+    double data_maxY;
+    if (fabs(filter_MinY-value)>std::numeric_limits<double>::epsilon()*10){
+        filter_MinY=value;
+        if (!ignorefirst_MinY){
+            setYscaling(User);
+            data_minY=axisScaleDiv(yLeft).lowerBound();
+            data_maxY=axisScaleDiv(yLeft).upperBound();
+            if (fabs(data_minY-value)>std::numeric_limits<double>::epsilon()*10){
+                data_minY=value;
+                setScaleY(data_minY, data_maxY);
+                //qDebug()<< "setMinYResize: "<< data_minY << data_maxY;
+            }
+        }else{
+           ignorefirst_MinY=false;
+        }
+    }
+
+}
+
+void caCartesianPlot::setMaxYResize(double value){
+    double data_minY;
+    double data_maxY;
+    if (fabs(filter_MaxY-value)>std::numeric_limits<double>::epsilon()*10){
+        filter_MaxY=value;
+        if (!ignorefirst_MaxY){
+            setYscaling(User);
+            data_minY=axisScaleDiv(yLeft).lowerBound();
+            data_maxY=axisScaleDiv(yLeft).upperBound();
+
+            if (fabs(data_maxY-value)>std::numeric_limits<double>::epsilon()*10){
+                data_maxY=value;
+                setScaleY(data_minY, data_maxY);
+                //qDebug()<< "setMaxYResize: "<< data_minY << data_maxY;
+            }
+        }else{
+           ignorefirst_MaxY=false;
+        }
+    }
 
 }
 

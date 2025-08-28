@@ -27,17 +27,20 @@
 #define NOMINMAX
 #include <windows.h>
 #define QWT_DLL
-#define snprintf _snprintf
 #endif
 
 #include "cameter.h"
 
 #if defined(_MSC_VER)
-#define fmax max
-#define fmin min
+ #define fmax max
+ #define fmin min
+ #ifndef snprintf
+  #define snprintf _snprintf
+ #endif
 #endif
 
 #include <qnumeric.h>
+#include <qwt_text.h>
 
 #if QWT_VERSION < 0x060100
 
@@ -114,8 +117,12 @@ caMeter::caMeter(QWidget *parent) : QwtDial(parent)
     setScale( thisMinValue, thisMaxValue);
     setScaleStepSize((thisMinValue - thisMaxValue)/10.0);
 #endif
-		
+
+#if QWT_VERSION < 0x060200
     ScaleDraw->setPenWidth(1);
+#else
+    ScaleDraw->setPenWidthF(1);
+#endif
     setLineWidth(1);
     setFrameShadow(QwtDial::Sunken);
 
@@ -220,7 +227,7 @@ void caMeter::setFormat(int prec)
         sprintf(thisFormat, "%s.%dle", "%", qAbs(precision));
         break;
     case truncated:
-        strcpy(thisFormat, "%d");
+        qstrncpy(thisFormat, "%d",SMALL_STRING_LENGTH);
         break;
     default:
         sprintf(thisFormat, "%s.%dlf", "%", precision);
@@ -250,10 +257,10 @@ QString caMeter::setLabel(double value, const QString& units)
 
     if(thisUnitMode) {
         strcat(asc, " ");
-        strcat(asc, qasc(units));
+        strcat(asc, units.toUtf8().constData());
     }
 
-    label = QString::fromAscii(asc);
+    label = QString::fromLatin1(asc);
 
     return label;
 }
@@ -282,7 +289,7 @@ QString caMeter::setScaleLabel(double value)
       snprintf(asc, MAX_STRING_LENGTH,  "nan");
     }
 
-    label = QString::fromAscii(asc);
+    label = QString::fromLatin1(asc);
 
     return label;
 }

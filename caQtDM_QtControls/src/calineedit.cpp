@@ -33,7 +33,9 @@
 #include "knobDefines.h"
 
 #if defined(_MSC_VER)
-  #define snprintf _snprintf
+    #ifndef snprintf
+     #define snprintf _snprintf
+    #endif
 #endif
 
 
@@ -89,6 +91,7 @@ caLineEdit::caLineEdit(QWidget *parent) : QLineEdit(parent), FontScalingWidget(t
 
     Alarm = 0;
 
+    thisDatatype = caDOUBLE;
     // default colors will be defined in my event handler by taking them from the palette defined by stylesheet definitions
     defSelectColor = Qt::red; // this does not appear in the palette
 
@@ -118,6 +121,13 @@ caLineEdit::caLineEdit(QWidget *parent) : QLineEdit(parent), FontScalingWidget(t
 void caLineEdit::setFromTextEntry()
 {
     connect(this, SIGNAL(textChanged(const QString&)), this, SLOT(rescaleFont(const QString&)));
+}
+
+void caLineEdit::triggertextChange(bool send)
+{
+    if (send){
+        emit textChanged(text());
+    }
 }
 
 void caLineEdit::setValueType(bool isvalue)
@@ -387,27 +397,27 @@ void caLineEdit::setFormat(int prec)
         break;
     case truncated:
     case enumeric:
-        if(thisDatatype == caDOUBLE) strcpy(thisFormat, "%lld");
-        else strcpy(thisFormat, "%d");
+        if(thisDatatype == caDOUBLE) qstrncpy(thisFormat, "%lld",MAX_STRING_LENGTH);
+        else qstrncpy(thisFormat, "%d",MAX_STRING_LENGTH);
         break;
     case utruncated:
-        if(thisDatatype == caDOUBLE) strcpy(thisFormat, "%llu");
-        else strcpy(thisFormat, "%u");
+        if(thisDatatype == caDOUBLE) qstrncpy(thisFormat, "%llu",MAX_STRING_LENGTH);
+        else qstrncpy(thisFormat, "%u",MAX_STRING_LENGTH);
         break;
     case hexadecimal:
-        if(thisDatatype == caDOUBLE) strcpy(thisFormat, "0x%llx");
-        else strcpy(thisFormat, "0x%x");
+        if(thisDatatype == caDOUBLE) qstrncpy(thisFormat, "0x%llx",MAX_STRING_LENGTH);
+        else qstrncpy(thisFormat, "0x%x",MAX_STRING_LENGTH);
         break;
     case octal:
-        if(thisDatatype == caDOUBLE) strcpy(thisFormat, "O%llo");
-        else strcpy(thisFormat, "O%o");
+        if(thisDatatype == caDOUBLE) qstrncpy(thisFormat, "O%llo",MAX_STRING_LENGTH);
+        else qstrncpy(thisFormat, "O%o",MAX_STRING_LENGTH);
         break;
     case sexagesimal:
     case sexagesimal_hms:
     case sexagesimal_dms:
         break;
     case user_defined_format:{
-            strncpy(thisFormat,thisFormatUserString.toLatin1().data(),20);
+            qstrncpy(thisFormat,thisFormatUserString.toLatin1().data(),MAX_STRING_LENGTH);
             break;
         }
     }
@@ -452,10 +462,10 @@ void caLineEdit::setValue(double value, const QString& units)
             datastring=datastring+units;
 
             unitsLast = units;
-            setTextLine(datastring);
+            setTextLine( datastring.toUtf8().constData());
 
         } else {
-            strcat(asc, qasc(specialUnitsString));
+            strcat(asc, specialUnitsString.toUtf8().constData());
             unitsLast = specialUnitsString;
             setTextLine(asc);
         }
@@ -628,8 +638,8 @@ QSize caLineEdit::sizeHint() const
     QFont f = font();
     f.setPointSize(10);
     QFontMetrics fm(f);
-    int w = fm.width(text());
-    int h = fm.height();
+    int w = QMETRIC_QT456_FONT_WIDTH(fm,text());
+    int h = QMETRIC_QT456_FONT_HEIGHT(fm,text());
     QSize size(w, h);
     //printf("ESimpleLabel \e[1;33msizeHint\e[0m \"%s\" returning size w %d h %d\n", objectName(), size.width(), size.height());
     return size;

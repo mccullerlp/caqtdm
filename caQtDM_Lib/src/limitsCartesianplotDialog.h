@@ -38,7 +38,9 @@
 #include <QString>
 #include <QLabel>
 #include <QEventLoop>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QDesktopWidget>
+#endif
 #include <QApplication>
 #include <QGroupBox>
 #include <QPainter>
@@ -66,6 +68,9 @@
 
      limitsCartesianplotDialog(caCartesianPlot *w, MutexKnobData *data, const QString &title, QWidget *parent);
      void exec();
+     bool getChannelScalingWasReset() {
+         return m_channelScalingWasReset;
+     };
 
  public slots:
      void cancelClicked();
@@ -90,6 +95,7 @@
      MutexKnobData *monData;
      QDialogButtonBox *buttonBox;
      QEventLoop loop;
+     bool m_channelScalingWasReset;
  };
 
 

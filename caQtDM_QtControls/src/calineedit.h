@@ -162,6 +162,7 @@ public slots:
     void hideObject(bool hideit) {
 #include "hideobjectcode.h"
     }
+    void triggertextChange(bool send);
 
 private slots:
     void rescaleFont(const QString& newText);
@@ -188,7 +189,7 @@ private:
 
     bool thisUnitMode;
     QString keepText;
-    char thisFormat[20];
+    char thisFormat[MAX_STRING_LENGTH];
     char thisFormatC[20];
     bool d_rescaleFontOnTextChanged;
     double thisMaximum, thisMinimum;

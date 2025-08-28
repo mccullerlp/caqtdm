@@ -3,6 +3,11 @@ QT += core gui
 contains(QT_VER_MAJ, 5) {
     QT     += widgets
 }
+contains(QT_VER_MAJ, 6) {
+    QT     += widgets
+    CONFIG += c++17
+}
+
 CONFIG += warn_on
 CONFIG += release
 CONFIG += epics4_plugin
@@ -17,12 +22,12 @@ INCLUDEPATH    += .
 INCLUDEPATH    += ../
 INCLUDEPATH    += ../../src
 
-HEADERS         = epics4_plugin.h ../controlsinterface.h 
+HEADERS         = epics4_plugin.h ../controlsinterface.h   
 SOURCES         = epics4_plugin.cpp
 TARGET          = epics4_plugin
 
-SOURCES += callbackThread.cpp epics4Requester.cpp
-HEADERS += callbackThread.h epics4Requester.h
+SOURCES += epics4_callbackThread.cpp epics4Requester.cpp
+HEADERS += epics4_callbackThread.h epics4Requester.h
 
 warning("epics4 was specified in qtdefs.pri, so build plugin with epics4 which will support all normative data types")
 

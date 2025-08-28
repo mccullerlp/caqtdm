@@ -8,6 +8,9 @@ contains(QT_VER_MAJ, 4) {
 contains(QT_VER_MAJ, 5) {
       QT += uitools
 }
+contains(QT_VER_MAJ, 6) {
+      QT += uitools
+}
 
 CONFIG += archive_plugin
 
@@ -24,6 +27,11 @@ INCLUDEPATH    += ../../
 INCLUDEPATH    += ../../../src
 INCLUDEPATH    += ../../../../caQtDM_QtControls/src/
 INCLUDEPATH    += $(QWTINCLUDE)
+
+android {
+   INCLUDEPATH += $(ANDROIDFUNCTIONSINCLUDE)
+}
+
 HEADERS         = ../../controlsinterface.h archiveSF_plugin.h sfRetrieval.h ../archiverCommon.h
 SOURCES         =  archiveSF_plugin.cpp sfRetrieval.cpp ../archiverCommon.cpp
 TARGET          = archiveSF_plugin
