@@ -8,10 +8,10 @@
   fi
   if [ -z "$QWTLIB" ];                then export   QWTLIB=${QWTHOME}/lib;
   fi
-  if [ -z "$QWTVERSION" ];            then export   QWTVERSION=6.1;
+  if [ -z "$QWTVERSION" ];            then export   QWTVERSION=6.3;
   fi
   # on unix library can be libqwt or libqwt-qt5 or ...
-  if [ -z "$QWTLIBNAME" ];            then export   QWTLIBNAME=qwt-qt5;
+  if [ -z "$QWTLIBNAME" ];            then export   QWTLIBNAME=qwt-qt6;
   fi
   if [ -z "$EPICS_HOST_ARCH" ];       then export   EPICS_HOST_ARCH=linux-x86_64;
   fi
@@ -44,7 +44,7 @@
   if [ -z "$QTDM_PLUGININSTALL" ]; then export QTDM_PLUGININSTALL=/usr/lib/x86_64-linux-gnu/qt5/plugins
   fi
   
-  if [ -z "$PYTHONVERSION" ];   then  export  PYTHONVERSION=2.7;
+  if [ -z "$PYTHONVERSION" ];   then  export  PYTHONVERSION=3.13;
   fi
   if [ -z "$PYTHONINCLUDE" ];   then  export  PYTHONINCLUDE=/usr/include/python$PYTHONVERSION;
   fi

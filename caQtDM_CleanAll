@@ -100,7 +100,7 @@ rm -f ./caQtDM_Viewer/parserEDM/moc/*
 rm -f ./caQtDM_Viewer/parserEDM/obj/*
 
 echo =========== clean all ==================
-qmake all.pro
+qmake6 all.pro
 make distclean
 
 
