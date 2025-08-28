@@ -41,7 +41,7 @@
   if [ -z "$QTDM_BININSTALL" ];   then  export  QTDM_BININSTALL=/usr/bin;
   fi
 
-  if [ -z "$QTDM_PLUGININSTALL" ]; then export QTDM_PLUGININSTALL=/usr/lib/x86_64-linux-gnu/qt5/plugins
+  if [ -z "$QTDM_PLUGININSTALL" ]; then export QTDM_PLUGININSTALL=/usr/lib/x86_64-linux-gnu/qt6/plugins
   fi
   
   if [ -z "$PYTHONVERSION" ];   then  export  PYTHONVERSION=3.13;
