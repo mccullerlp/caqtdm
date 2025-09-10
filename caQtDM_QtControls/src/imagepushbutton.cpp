@@ -76,7 +76,8 @@ void ImagePushButton::paintEvent( QPaintEvent* event) {
     x=r.x(); y=r.y(); w=r.width(); h=r.height();
 
     if(!invisible) {
-        if(iconPresent && iconOK) {
+
+      if(iconPresent && iconOK and qEnvironmentVariable("CAQTDM_NO_ICONS").isEmpty()) {
             int hpix = qRound(h * 0.9);
             QPixmap pixnew1 = pixmap.scaledToHeight(hpix, Qt::SmoothTransformation);
             int wpix = qRound(pixnew1.width() * 0.85);
