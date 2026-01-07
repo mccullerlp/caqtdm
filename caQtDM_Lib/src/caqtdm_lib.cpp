@@ -46,6 +46,8 @@
 #include <QHostInfo>
 #include <QMutableListIterator>
 
+#include <QRegularExpression>
+
 // interfacing widgets, handling their own data acquisition ... (thanks zai)
 #include "caWidgetInterface.h"
 
@@ -4145,7 +4147,7 @@ bool CaQtDM_Lib::Python_Error(QWidget *w, QString message)
     pystring = PyObject_Str(errObj);
 #if PY_MAJOR_VERSION >= 3
     bool pystringcheck = PyUnicode_Check(pystring);
-    errorStr = PyUnicode_AsUTF8 (pystring);
+    errorStr = PyUnicode_AsUTF8(pystring);
 #else
     bool pystringcheck = PyString_Check(pystring);
     errorStr = PyString_AsString(pystring);
@@ -4160,7 +4162,7 @@ bool CaQtDM_Lib::Python_Error(QWidget *w, QString message)
     pystring = PyObject_Str(errData);
 #if PY_MAJOR_VERSION >= 3
     pystringcheck = PyUnicode_Check(pystring);
-    errorStr = PyUnicode_AsUTF8 (pystring);
+    errorStr = PyUnicode_AsUTF8(pystring);
 #else
     pystringcheck = PyString_Check(pystring);
     errorStr = PyString_AsString(pystring);
