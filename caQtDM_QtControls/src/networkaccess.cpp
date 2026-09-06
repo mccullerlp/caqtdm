@@ -37,10 +37,13 @@
 #  include <unistd.h>
 #endif
 
-NetworkAccess::NetworkAccess()
+Q_LOGGING_CATEGORY(networkAccessLog, "caqtdm.widgets.networkaccess")
+
+NetworkAccess::NetworkAccess(QNetworkAccessManager *managerToUse)
 {
     finished = false;
-    manager = new QNetworkAccessManager;
+    if(managerToUse != Q_NULLPTR) manager = managerToUse;
+    else manager = new QNetworkAccessManager(this);
     eventLoop = new QEventLoop(this);
     errorString = "";
     connect(this, SIGNAL(requestFinished()), this, SLOT(downloadFinished()) );
@@ -56,7 +59,7 @@ bool NetworkAccess::requestUrl(const QUrl url, const QString &file)
 {
     finished = false;
     thisFile = file;
-    //printf("caQtDM -- download %s\n", qasc(url.toString()));
+    qCDebug(networkAccessLog) << "caQtDM -- download" << url.toString();
     downloadUrl = url;
 
     QNetworkRequest request = QNetworkRequest(url);
@@ -97,7 +100,7 @@ int NetworkAccess::downloadFinished()
 
 void NetworkAccess::finishReply(QNetworkReply *reply)
 {
-    //printf("network reply completed! thisFile=%s\n",  qasc(thisFile));
+    qCDebug(networkAccessLog) << "network reply completed! thisFile=" << thisFile;
 
     QVariant status =  reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
     if(reply->error()) {
@@ -111,6 +114,17 @@ void NetworkAccess::finishReply(QNetworkReply *reply)
     if(thisFile.length() > 0) {
         Specials specials;
         QString filePath = specials.getStdPath();
+
+        // the name may come from a downloaded file; resolve it and keep it below the directory
+        const QString baseDir = QDir::cleanPath(filePath);
+        const QString targetPath = QDir::cleanPath(baseDir + "/" + thisFile);
+        if(!targetPath.startsWith(baseDir + "/")) {
+            errorString = tr("networkaccess: refused to write outside the download directory: %1").arg(thisFile);
+            qCWarning(networkAccessLog) << "caQtDM -- refused download outside" << baseDir << ":" << thisFile;
+            emit requestFinished();
+            reply->deleteLater();
+            return;
+        }
 
         // create directory if not exists
         QFileInfo fi(thisFile);

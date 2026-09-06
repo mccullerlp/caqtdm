@@ -13,7 +13,7 @@ contains(QT_VER_MAJ, 4) {
 }
 contains(QT_VER_MAJ, 5) {
       QT += widgets concurrent uitools opengl network
-      CONFIG  += qwt plugin
+      CONFIG  += qwt plugin cahmi
       DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x000000
       ios | android {
          greaterThan(QT_MINOR_VERSION, 4) {
@@ -26,8 +26,11 @@ contains(QT_VER_MAJ, 5) {
       }
 }
 contains(QT_VER_MAJ, 6) {
-      QT += widgets concurrent uitools opengl core
-      CONFIG  += qwt plugin
+      QT += widgets concurrent opengl core network xml
+      !android {
+        QT += uitools
+      }
+      CONFIG  += plugin cahmi
       ios | android {
             QT += uiplugin
       }else {
@@ -44,9 +47,10 @@ INCLUDEPATH += src
 INCLUDEPATH += ../caQtDM_Lib/src
 INCLUDEPATH += ../caQtDM_Parsers/adlParserSrc
 INCLUDEPATH += ../caQtDM_Parsers/edlParserSrc
+INCLUDEPATH += ../caQtDM_Parsers/prcParserSrc
 
-android {
-   INCLUDEPATH += $(ANDROIDFUNCTIONSINCLUDE)
+freebsd {
+   INCLUDEPATH += /usr/local/include
 }
 
 RESOURCES = qtcontrols.qrc
@@ -56,6 +60,9 @@ RC_FILE = ./src/qtcontrols.rc
 #INCLUDEPATH += /opt/intel/parallel/vtune_amplifier_xe_2013/include
 #LIBS += /opt/intel/parallel/vtune_amplifier_xe_2013/lib32/libittnotify.a
 
+freebsd {
+   LIBS += -L/usr/local/lib -lz
+}
 
 PRE_TARGETDEPS += \
      moc/moc_caslider.cpp \
@@ -64,7 +71,11 @@ PRE_TARGETDEPS += \
      moc/moc_cameter.cpp \
      moc/moc_caclock.cpp
 
-contains(QWT_VER_MIN, 1)|contains(QWT_VER_MIN, 2)|contains(QWT_VER_MIN, 3) {
+cahmi{
+    PRE_TARGETDEPS += moc/moc_cahmiconfigtransferitem.cpp
+}
+
+!contains(QWT_VER_MIN, 0){
   PRE_TARGETDEPS += moc/moc_qwt_thermo_marker_61.cpp
 }
 
@@ -114,7 +125,9 @@ SOURCES	+= \
     src/cacamera.cpp \
     src/imagewidget.cpp \
     src/cacalc.cpp \
+    src/gensoftpv.cpp \
     src/parsepepfile.cpp \
+    src/uiconverter.cpp \
     src/catogglebutton.cpp \
     src/cascriptbutton.cpp \
     src/cadoubletabwidget.cpp \
@@ -124,6 +137,7 @@ SOURCES	+= \
     src/caspinbox.cpp \
     src/qwtplotcurvenan.cpp \
     src/cawavetable.cpp \
+    src/cawavetablemodel.cpp \
     src/specialFunctions.cpp \
     src/caclock.cpp \
     src/cameter.cpp \
@@ -139,9 +153,16 @@ SOURCES	+= \
     src/calinedraw.cpp \
     src/wmsignalpropagator.cpp \
     src/replacemacro.cpp \
-    src/JSON.cpp \
-    src/JSONValue.cpp \
-    src/textedit.cpp
+    src/textedit.cpp \
+    src/wmsignalrescale.cpp
+
+cahmi{
+SOURCES	+= \
+    src/hmiapplicationeventfilter.cpp \
+    src/cahmiconfig.cpp \
+    src/cahmiconfigtransferitem.cpp \
+}
+
 
 ADL_EDL_FILES {
     SOURCES	+= src/parseotherfile.cpp
@@ -155,29 +176,37 @@ XDR_HACK {
 !MOBILE {
     SOURCES +=  src/pvtaskmenu.cpp src/pvdialog.cpp
     HEADERS +=  src/pvtaskmenu.h src/pvdialog.h
+    SOURCES +=  src/gensoftpvtaskmenu.cpp src/gensoftpvdialog.cpp
+    HEADERS +=  src/gensoftpvtaskmenu.h src/gensoftpvdialog.h
     SOURCES +=  src/cadoubletabwidgetextensionfactory.cpp  src/cadoubletabwidgetextension.cpp
     SOURCES +=  src/capolylinetaskmenu.cpp src/capolylinedialog.cpp
     HEADERS +=  src/cadoubletabwidgetextension.h
     HEADERS +=  src/cadoubletabwidgetextensionfactory.h  src/capolylinetaskmenu.h
 }
 
-QT += network
 HEADERS += src/networkaccess.h src/fileFunctions.h \
     src/calinedraw.h \
     src/plotHelperClasses.h \
     src/wmsignalpropagator.h \
     src/replacemacro.h \
-    src/JSON.h \
-    src/JSONValue.h \
     src/networkmodel.h \
-    src/textedit.h
+    src/textedit.h \
+    src/wmsignalrescale.h
+
+cahmi{
+HEADERS += \
+    src/hmiapplicationeventfilter.h \
+    src/cahmiconfig.h \
+    src/cahmiconfigtransferitem.h \
+}
+
+
 SOURCES += src/networkaccess.cpp src/fileFunctions.cpp
 
 contains(QWT_VER_MIN, 0) {
    HEADERS	+= src/qwt_thermo_marker.h
    SOURCES	+= src/qwt_thermo_marker.cpp
-}
-contains(QWT_VER_MIN, 1)|contains(QWT_VER_MIN, 2)|contains(QWT_VER_MIN, 3) {
+}else {
    HEADERS	+= src/qwt_thermo_marker_61.h
    SOURCES	+= src/qwt_thermo_marker_61.cpp
 }
@@ -228,9 +257,11 @@ HEADERS	+= \
     src/cacamera.h \
     src/imagewidget.h \
     src/cacalc.h \
+    src/gensoftpv.h \
     src/qtcontrols_global.h \
     src/alarmdefs.h \
     src/parsepepfile.h \
+    src/uiconverter.h \
     src/catogglebutton.h \
     src/cascriptbutton.h \
     src/cadoubletabwidget.h \
@@ -240,6 +271,7 @@ HEADERS	+= \
     src/caspinbox.h \
     src/qwtplotcurvenan.h \
     src/cawavetable.h \
+    src/cawavetablemodel.h \
     src/capolylinedialog.h \
     src/specialFunctions.h \
     src/caclock.h \

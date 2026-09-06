@@ -47,8 +47,10 @@
  *
  *  Author:
  *    Anton Mezger
+ *    Yannick Wernle
  *  Contact details:
  *    anton.mezger@psi.ch
+ *    yannick.wernle@psi.ch
  */
 
 #include <QWidget>
@@ -74,7 +76,7 @@ class QTCON_EXPORT caDoubleTabWidget : public QWidget
     Q_PROPERTY(int currentIndex READ currentIndex WRITE setCurrentIndex)
 
     // this will prevent user interference
-    Q_PROPERTY(QString styleSheet READ styleSheet WRITE noStyle DESIGNABLE false)
+    Q_PROPERTY(QString styleSheet READ styleSheet WRITE editStyleSheet) // DESIGNABLE false
 
 public:
     void noStyle(QString style) {Q_UNUSED(style);}
@@ -108,6 +110,7 @@ public slots:
     void animation(QRect p) {
 #include "animationcode.h"
     }
+    void editStyleSheet(QString styleSheet);
 
     void hideObject(bool hideit) {
 #include "hideobjectcode.h"

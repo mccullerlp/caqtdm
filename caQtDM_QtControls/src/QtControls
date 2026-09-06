@@ -31,6 +31,7 @@
 #include <camessagebutton.h>
 #include <cacamera.h>
 #include <cacalc.h>
+#include <gensoftpv.h>
 #include <catogglebutton.h>
 #include <cascriptbutton.h>
 #include <cadoubletabwidget.h>
@@ -46,12 +47,19 @@
 #include <calinedraw.h>
 #include <replacemacro.h>
 #include "wmsignalpropagator.h"
+#include <wmsignalrescale.h>
+
+#ifdef CAHMI
+#include <cahmiconfig.h>
+#endif
+
 
 #ifndef MOBILE
     #include <cadoubletabwidgetextension.h>
     #include <cadoubletabwidgetextensionfactory.h>
     #include <capolylinetaskmenu.h>
     #include <pvtaskmenu.h>
+    #include <gensoftpvtaskmenu.h>
 #endif
 
 #endif

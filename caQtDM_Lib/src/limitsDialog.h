@@ -63,7 +63,7 @@
  class QSpinBox;
  class QWidget;
 
- class limitsDialog : public QWidget
+class CAQTDM_LIBSHARED_EXPORT limitsDialog : public QWidget
 {
      Q_OBJECT
 
@@ -75,6 +75,8 @@
      void cancelClicked();
      void applyClicked();
      void indexChanged(int);
+     void intDigitsChanged(int);
+     void decDigitsChanged(int);
 
  protected:
      virtual void closeEvent(QCloseEvent *event);

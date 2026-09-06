@@ -7,6 +7,7 @@ _QTHOME=$$(QTHOME)
 _QWTHOME=$$(QWTHOME)
 _EPICSBASE=$$(EPICS_BASE)
 _EPICSHOSTARCH=$$(EPICS_HOST_ARCH)
+_CAQTDMWEB=$$(CAQTDM_WEB)
 
 include (caQtDM_Viewer/qtdefs.pri)
 
@@ -49,8 +50,10 @@ SUBDIRS = caQtDM_QtControls caQtDM_Lib caQtDM_Viewer
 SUBDIRS += qtcontrols_controllers qtcontrols_graphics qtcontrols_monitors qtcontrols_utilities
 SUBDIRS += caQtDM_Plugins caQtDM_Parsers
 
-android {
-  SUBDIRS += caQtDM_AndroidFunctions
+caqtdm_with_tests {
+  SUBDIRS += caQtDM_UnitTests
+  caQtDM_UnitTests.file = caQtDM_UnitTests/caQtDM_UnitTests.pro
+  caQtDM_UnitTests.depends = caQtDM_Viewer
 }
 
 qtcontrols_controllers.file = caQtDM_QtControls/plugins/qtcontrols_controllers.pro 
@@ -65,19 +68,22 @@ qtcontrols_monitors.depends = caQtDM_QtControls caQtDM_Lib
 qtcontrols_utilities.file = caQtDM_QtControls/plugins/qtcontrols_utilities.pro
 qtcontrols_utilities.depends = caQtDM_QtControls caQtDM_Lib
 
-caQtDM_Plugins.file = caQtDM_Lib/caQtDM_Plugins/csplugins.pro 
-caQtDM_Plugins.depends = caQtDM_Lib
+INCLUDEPATH += ./caQtDM_Plugins
 
+caQtDM_Plugins.depends = caQtDM_Lib
 
 !MOBILE {
    SUBDIRS +=   parser
    unix:{
         SUBDIRS += parserEDM
    }
+   SUBDIRS += parserPRC
    parser.file = caQtDM_Viewer/parser/parser.pro
    parser.depends = caQtDM_Parsers
    parserEDM.file = caQtDM_Viewer/parserEDM/parserEDM.pro
    parserEDM.depends = caQtDM_Parsers
+   parserPRC.file = caQtDM_Viewer/parserPRC/parserPRC.pro
+   parserPRC.depends = caQtDM_Parsers
    ADL_EDL_FILES {
       caQtDM_Lib.depends += caQtDM_Parsers
    }
@@ -88,15 +94,8 @@ caQtDM_Lib.depends = caQtDM_QtControls
 
 caQtDM_QtControls.depends += caQtDM_Parsers
 
-android {
-  caQtDM_Lib.depends += caQtDM_AndroidFunctions
-}
-
-archiveCA.depends = caQtDM_QtControls caQtDM_Lib
-archivePRO.depends = caQtDM_QtControls caQtDM_Lib
 archiveSF.depends = caQtDM_QtControls caQtDM_Lib
 archiveHTTP.depends = caQtDM_QtControls caQtDM_Lib
-archiveHIPA.depends = caQtDM_QtControls caQtDM_Lib
 
 iosArchitectures=arm64
 iosTarget=17.0
@@ -108,5 +107,5 @@ QMAKE_IOS_DEVICE_ARCHS = $$iosArchitectures
 # QMAKE_IOS_DEPLOYMENT_TARGET = $$iosTarget
 
 # Set "Devices" (1=iPhone, 2=iPad, 1,2=Universal)
-QMAKE_IOS_TARGETED_DEVICE_FAMILY = 2
+# QMAKE_IOS_TARGETED_DEVICE_FAMILY = 2
 

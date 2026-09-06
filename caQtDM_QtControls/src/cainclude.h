@@ -36,7 +36,7 @@
 #define PRC 1
 
 #ifdef PRC
-   #include "parsepepfile.h"
+   #include "uiconverter.h"
 #endif
 
 class  QTCON_EXPORT caInclude : public QWidget
@@ -54,8 +54,8 @@ class  QTCON_EXPORT caInclude : public QWidget
     Q_PROPERTY(double yCorrectionFactor READ getYcorrection WRITE setYcorrection  DESIGNABLE isPropertyVisible(yCorrectionFactor))
 #else
     Q_PROPERTY(QString macro READ getMacroC WRITE setMacro  DESIGNABLE false)
-    Q_PROPERTY(QString xPositionsOrChannels READ getXpositions WRITE setXpositions DESIGNABLE false STORED false)
-    Q_PROPERTY(QString yPositionsOrChannels READ getYpositions WRITE setYpositions DESIGNABLE false STORED false)
+    Q_PROPERTY(QString xPositionsOrChannels READ getXpositions WRITE setXpositions DESIGNABLE true STORED false)
+    Q_PROPERTY(QString yPositionsOrChannels READ getYpositions WRITE setYpositions DESIGNABLE true STORED false)
 
     Q_PROPERTY(double xCorrectionFactor READ getXcorrection WRITE setXcorrection  DESIGNABLE true)
     Q_PROPERTY(double yCorrectionFactor READ getYcorrection WRITE setYcorrection  DESIGNABLE true)
@@ -243,10 +243,6 @@ private:
     double thisXresizefactor;
     double thisYresizefactor;
     QList<QWidget*> thisChildsList;
-
-#ifdef PRC
-    ParsePepFile *pepfile;
-#endif
 };
 
 #endif

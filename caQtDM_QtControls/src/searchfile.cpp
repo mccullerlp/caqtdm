@@ -25,6 +25,9 @@
 
 #include "searchfile.h"
 #include "pathdefinitions.h"
+#include <QDir>
+
+Q_LOGGING_CATEGORY(searchFileLog, "caqtdm.widgets.searchfile")
 
 searchFile::searchFile(QString filename)
 {
@@ -43,6 +46,9 @@ QString searchFile::findFile()
     bool fileFound = false;
     QFileInfo fi(FileName);
 
+    qCDebug(searchFileLog) << "findFile: input=" << _FileName << "len=" << _FileName.size()
+                           << "cwdExists=" << fi.exists() << "DISPLAY_PATH=" << path;
+
     // file was not found, go through path list
     if(!fi.exists()) {
        for(int i=0; i< paths.count(); i++) {
@@ -53,6 +59,7 @@ QString searchFile::findFile()
             // If OS isn't Windows, there are no spaces either way.
             FileName = paths[i] + "/" + _FileName;
             QFileInfo fin(FileName);
+            qCDebug(searchFileLog) << "findFile: candidate[" << i << "]=" << QDir::toNativeSeparators(FileName) << "exists=" << fin.exists();
             if(fin.exists()) {
             fileFound = true;
             break;
@@ -66,10 +73,14 @@ QString searchFile::findFile()
 
     // return filename or null
     if(fileFound) {
-        //printf("searchFile -- %s\n", qasc(FileName));
+        qCDebug(searchFileLog) << "searchFile --" << FileName;
         return FileName;
     }
-    else return NULL;
+    else {
+        qCDebug(searchFileLog) << "findFile: NOT FOUND input=" << _FileName << "len=" << _FileName.size()
+                               << "testedPaths=" << paths.count();
+        return NULL;
+    }
 }
 
 QString searchFile::displayPath()

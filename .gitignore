@@ -1,2 +1,45 @@
 # Sphinx
 docs/build
+# Qt Creator
+*.pro.user
+*.pro.user.*
+.qtc_clangd/
+*.qtc_*
+build/
+
+# Qmake
+.qmake.stash
+Makefile
+Makefile.*
+moc/
+obj/
+moc_*
+
+# Generated files
+ui_main.h
+caQtDM_Binaries/
+qrc_qtcontrols.cpp
+qrc_qtcontrolsplugin.cpp
+qrc_caQtDM.cpp
+
+#Binaries
+*.MSI
+*.DLL
+*.EXE
+*.LIB
+*.EXP
+*.OBJ
+*.PDB
+*.o
+*.so
+
+#Tools
+.vs
+.qtc_clangd
+
+# Unit tests
+caQtDM_UnitTests/**/target_wrapper.sh
+caQtDM_UnitTests/tst_logging/tst_logging
+caQtDM_UnitTests/tst_qtcontrols/tst_qtcontrols
+caQtDM_UnitTests/tst_lib/tst_lib
+caQtDM_UnitTests/tst_plugins/tst_bsread/tst_bsread

@@ -1,12 +1,17 @@
-=============
+==============
 caQtDM Manual
-=============
+==============
 
 | **Anton Mezger/Helge Brands**
-| **May 2025**
+| **June 2026**
 | Paul Scherrer Institute
 | CH-5232 Villigen
 | Switzerland
+|
+| **and our co-worker:**
+| Yannik Wernle
+| Erik Schwarz
+| Julian Leon Houba
 
 About this manual
 -----------------
@@ -142,7 +147,7 @@ locally without installing.
    the test directory.
 #. in case you have qwt 6.1 or greater you will have to use the file qwt_thermo_marker_61
    in caQtDM_QtControls/src. (*instead of qwt_thermo_marker*)
-#. in case you are already using Qt5 or Qt6 with qwt6.2 the build process should also be
+#. in case you are already using Qt5 or Qt6 with qwt6.3 the build process should also be
    straight forward.
 #. Instructions for compiling caQtDM on Windows/Linux/Mac Requirements:
 
@@ -154,7 +159,7 @@ Min:
    -  Wix 3.0
 
 Max:
-   -  Qt 6.9.0
+   -  Qt 6.10.0
    -  Qwt 6.3.0
    -  EPICS 7.0.9
    -  MS Visual Studio 2022
@@ -389,6 +394,25 @@ Development history
 The following list describe the new features and bug fixes for every
 release. You can follow the development history and detect if a bug in
 the used version has been solved.
+.. container::
+
+   4.6.1
+   
+- update fix for unconnected Channels
+- ``%read`` command for cainclude and caRelatedDisplay
+- old files cleanup
+- implement pipelines for various target systems (github actions)
+- added various packing mechanissmen
+- caWavetable got some signals and slots for generating for vertical and horizontal sync
+- caWavetable added header manipulation functions
+- fix in RPM dependencies
+- cainfo Panel corrections and remove EPICS data requests (avoid unesseary channel searchs)
+- recoloring caDoubleTabWidget via Stylesheets
+- added a CloseOnExit0 for the caScriptbutton
+- added the localisation for characters to caMenu and caMessageButton
+- added selecting/copy/paste mechanisem at various parts of the caqtdm
+- caMessageButton can now set strings
+- changed the build system that for linux systems to build without RPATH
 
 .. container::
 
@@ -1260,7 +1284,7 @@ is the equivalent of the Text Update in MEDM.
       |                                  | absolaute precision from user or |
       |                                  | channel                          |
       +----------------------------------+----------------------------------+
-      | compact                          | value encode in e or f format    |
+      | compact                          | value encoded in e or f format   |
       |                                  | using absolaute precision from   |
       |                                  | user or channel, format will     |
       |                                  | switch to e format for values    |
@@ -1277,6 +1301,11 @@ is the equivalent of the Text Update in MEDM.
       +----------------------------------+----------------------------------+
       | string                           | will be treated as decimal       |
       |                                  | format                           |
+      +----------------------------------+----------------------------------+
+      | user_defined_format              | takes a c printf style format    |
+      |                                  | string taking a float if the     |
+      |                                  | channel has the type of double   |
+      |                                  | and an int if not                |
       +----------------------------------+----------------------------------+
 
 --------------
@@ -1616,6 +1645,9 @@ curves
 
       The above behaviour still has to be tested thoroughly. It appeared
       already that perhaps Count must be twice the value described above?
+      
+      You can also copy the current image of a caCartesianPlot (pixmap -> png)
+      using the context menu.
 
 --------------
 
@@ -2258,6 +2290,76 @@ is the equivalent of the Composite in MEDM
    placing a semicolon after the file name and entering them like on the
    command line.
 
+   **Properties:**
+   The following properties are available:
+
+   ``macroList``
+      List of strings to define macros. As in the commandline multiple macros have to be seperated by commas. If it is needed 
+      you can load a macrolist from a text file with the command %(read <path>/<filename>)
+      Type: name/identifier (string)
+
+   ``xPositionsOrChannels``
+      in case stacking is position the x position inside the caInclude Widget can be defined here. This can be a constant or a channel
+      Type: name/identifier (string)	
+
+   ``yPositionsOrChannels``
+      in case stacking is position the y position inside the caInclude Widget can be defined here. This can be a constant or a channel
+      Type: name/identifier (string)
+
+   ``xCorrectionFactor``
+      linear conversion factor for the x position (channel value -> display coordinates)
+      Type: number (float)
+
+   ``yCorrectionFactor``
+      linear conversion factor for the x position (channel value -> display coordinates)
+      Type: number (float)
+
+   ``filename``
+      UI file name that is loaded and displayed inside the area of the caInclude Widget. 
+      Type: name/identifier (string)
+   ``stacking``
+      
+
+      Type: options (enum)
+
+   ``maximumLines``
+   ``maximumColumns``
+   ``adjustSizeToContents``
+   ``verticalSpacing``
+   ``horizontalSpacing``
+   ``frameShape``
+   ``frameShadow``
+   ``frameLineWidth``
+   ``frameColor``
+   ``visibility + Calc + channels``
+
+
+   ``lable``
+      String to define a lable in the menue-Mode. The icon that is display can be removed with adding a "-" in the beginning of the string
+      Type: name/identifier (string)
+
+   ``lablesList``
+      List of strings to name the buttons/menu entries.
+      Type: name/identifier (string)
+
+   ``filesList``
+      List of strings of UI files to be loaded.
+      Type: name/identifier (string)
+
+
+
+
+
+   ``fontScaleMode``
+      Menue to define the behavior of the lables during rescaling.
+      Type: options (enum)
+
+   ``stackingMode``
+      To define the stacking generated buttons on the display (Menue/Row/Column/RowColumn/Hidden.  
+      The hidden option can be used when the loading gets triggered by signal.
+      Type: options (enum)
+
+
 --------------
 
 .. _caDoubleTabWidget:
@@ -2265,10 +2367,14 @@ is the equivalent of the Composite in MEDM
 ``caDoubleTabWidget``
 ~~~~~~~~~~~~~~~~~~~~~
 
-has no equivalent in MEDM and is not a controls object
+has no equivalent in MEDM and is not a controls object.
 
    :ref:`geometry` is used for any object
    **Description:**
+
+   enables the use of tabs. A new tab can be added in Qt Designer by right-clicking on the widget
+   and using 'Insert Before' or 'Insert After' (doesnt matter which). Color of tabs can be edited via stylesheet
+   (QTabBar::tab for horizontal, QPushButton:checked for vertical ones)
 
 all controller objects
 --------------------------
@@ -2293,7 +2399,18 @@ is the equivalent of the Wheelswitch in MEDM
    selected digit. Clicking on an arrow button will increment or
    decrement the digit. The WheelSwitch will also accept input of a new
    value via the keyboard by double clicking on the value. Escape aborts
-   the input. Type Enter to finish the input.
+   the input. Type Enter to finish the input. Inputs are restricted to Limits,
+   either set by channel or by the user. To correctly display a number, the number must be
+   between the upper and lower limits.
+   
+   Due to internal constraints, the maximum displayable digits are limited to 15:
+   Above this threshold, rounding errors can occur, which are colored in another color.
+   Those constraints affect large numbers as well - the more digits a number has before the comma, 
+   the less will be displayable after.
+   If a value is received by the channel that is above the implemented limits, the widget shifts the comma 
+   to correctly display the value received - if a number is very big, displayable precision can be lost.
+   To avoid any issues caused by this, make sure that your limit is set high enough that such a shift doesn't occur.
+
 
 --------------
 
@@ -2306,7 +2423,7 @@ is the equivalent of the Wheelswitch in MEDM
 
    :ref:`geometry` is used for any object
    **Description:**
-   The same behaviour as the Wheelswitch, with the difference that the
+   The same behaviour as the Wheelswitch/ :ref:`caNumeric`, with the difference that the
    value will be applied when pressing the apply button.
 
 --------------
@@ -2318,7 +2435,7 @@ is the equivalent of the Wheelswitch in MEDM
 
 has no equivalent in MEDM
 
-   <:ref:`geometry` is used for any object
+   :ref:`geometry` is used for any object
    **Description:**
 
 --------------
@@ -2405,6 +2522,35 @@ is the equivalent of the Related Display in MEDM
    |                     | in case the user cannot find them.            |
    +---------------------+-----------------------------------------------+
 
+   **Properties:**
+   The following properties are available:
+
+   ``lable``
+      String to define a lable in the menue-Mode. The icon that is display can be removed with adding a "-" in the beginning of the string
+      Type: name/identifier (string)
+
+   ``lablesList``
+      List of strings to name the buttons/menu entries.
+      Type: name/identifier (string)
+
+   ``filesList``
+      List of strings of UI files to be loaded.
+      Type: name/identifier (string)
+
+   ``argsList``
+      List of strings to define macros. As in the commandline multiple macros have to be seperated by commas. If it is needed 
+      you can load a macrolist from a text file with the command %(read <path>/<filename>)
+      Type: name/identifier (string)
+
+   ``fontScaleMode``
+      Menue to define the behavior of the lables during rescaling.
+      Type: options (enum)
+
+   ``stackingMode``
+      To define the stacking generated buttons on the display (Menue/Row/Column/RowColumn/Hidden.  
+      The hidden option can be used when the loading gets triggered by signal.
+      Type: options (enum)
+
 --------------
 
 .. _caTextEntry:
@@ -2464,9 +2610,190 @@ represents a simplified Wheelswitch
 
    :ref:`geometry` is used for any object
    **Description:**
+   The WheelSwitch has 2 arrow buttons to the side: One pointing up and one pointing down.
+   The up and down arrow buttons are the main feature of the
+   WheelSwitch. To change any digit, click the digit you want to change. 
+   The currently selected digit will be outlined by a red color. 
+   The up and down-buttons in- or decrement the selected digit by 1 unit.
+
+   Spinbox behaves in general very similar to :ref:`caNumeric`, including its digits-constraints. 
 
 --------------
 
+.. _caHMIConfig:
+
+``caHMIConfig``
+~~~~~~~~~~~~~~~
+has no equivalent in MEDM
+
+   **Description:**
+   The caHMIConfig object is used to configure what to do with certain
+   Human Machine Interface (HMI) events. This means it supports
+   capturing mouse events and keyboard shortcuts. The object itself is
+   invisible at runtime and does not interact with the user. It
+   can be configured just like any other object in Qt Designer.
+
+
+   **Properties:**
+   The following properties are available:
+
+   ``outputA``
+      1st Output, primary output route.
+      Type: channel name/identifier (string)
+
+   ``outputB``
+      2nd Output, secondary/alternative output route.
+      Type: channel name/identifier (string)
+
+   ``channel``
+      Primary input channel/PV name.
+      Type: channel name/identifier (string)
+
+   ``channelB``
+      Secondary input channel.
+      Type: channel name/identifier (string)
+
+   ``channelC``
+      Tertiary input channel.
+      Type: channel name/identifier (string)
+
+   ``channelD``
+      Quaternary input channel.
+      Type: channel name/identifier (string)
+
+   ``shortcut``
+      Keyboard shortcut to trigger an action. Can be multiple different shortcuts (e.g. "Ctrl+H", "Ctrl+Shift+H") \
+      Type: Qt key sequence string (e.g. "Ctrl+H" or "Ctrl+H", "Ctrl+Shift+H").
+
+   ``valueOrCalc``
+      Specify either a literal value or a calculated epics calc expression. Channels A-D can be used in the epics calc expression.
+      Wheter to handle it as a static value or as an epics calc string can be configured by setting ``calculationType``.
+      This only applies if ``captureType`` is set to ``KeyboardSet``.
+
+      Type: QVariant (string or numeric).
+
+   ``calculationType``
+      Calculation mode for determining the output value.
+      This only applies if ``captureType`` is set to ``KeyboardSet``.
+
+      Type: enum. Valid values:
+
+      - ``SetValue`` — use a literal/static value.
+      - ``Calc`` — compute the value from an epics calc expression.
+
+   ``captureType``
+      Capture event type (e.g., what to capture/respond to).
+
+      Type: enum. Valid values:
+
+      - ``KeyboardValue`` — capture keyboard input and emit the entered value. (Will write the key into ``outputA`` and potential modifiers into ``outputB``.) (Both values are hex numbers, the mapping for the keys can be found `here <https://doc.qt.io/qt-6/qt.html#Key-enum>`_ and the mapping for the modifiers `here <https://doc.qt.io/qt-6/qt.html#KeyboardModifier-enum>`_)
+      - ``KeyboardSet`` — capture keyboard input and apply/set the value if the received shortcut equals the ``shortcut`` property. (Can be a literal value or a calculated epics calc expression that is defined in the ``valueOrCalc`` property.)
+      - ``MouseMove`` — capture mouse movement events.
+      - ``MousePress`` — capture mouse press/click events.
+
+   ``captureRange``
+      Capture range/scope for the selected capture type.
+
+      Type: enum. Valid values:
+
+      - ``Local`` — capture within the local widget/window context. (When capturing mouse events, this means within the parent container of the caHMIConfig widget (e.g. ``caFrame``, ``MainWindow``, etc.) ``0,0`` will be the top-left corner of the parent container). When capturing keyboard events, this means when the parent window has focus. )
+      - ``Global`` — capture caQtDM application-wide and beyond (including other instances of caQtDM, useful for setting global keyboard shortcuts. This is limited to the current user session and only to caQtDM processes). (When capturing mouse events this will capture the mouse events of all open caQtDM windows, ``0,0`` will be the cursors position inside the interacted window.)
+
+   ``mouseSignalRectSize``
+      Size of the mouse signal interaction rectangle in pixels. This allows you to pass a custom size with the ``caHMIConfigMouse(QRect rect)`` signal.
+      This only applies if ``captureType`` is set to ``MouseMove`` or ``MousePress`` and the before mentioned signal is used.
+
+      Type: ``QSize`` (width × height).
+
+
+   **Signals:**
+   The following signals are emitted by the caHMIConfig widget:
+
+   ``caHMIConfigKeyPressReceived(QKeySequence data)``
+      Emitted when a key press matching the configured shortcut is received. The ``QKeySequence`` carries the key combination.
+
+   ``caHMIConfigMouseX(int x)``
+      Emitted on mouse capture to report the X coordinate in pixels.
+
+   ``caHMIConfigMouseY(int y)``
+      Emitted on mouse capture to report the Y coordinate in pixels.
+
+   ``caHMIConfigMouse(QRect rect)``
+      Emitted on mouse capture to report a selected rectangle region. The ``QRect`` carries the rectangle (x, y, width, height). The width and height are determined by the ``mouseSignalRectSize`` property.
+
+   ``caHMIConfigMouse(QPoint point)``
+      Emitted on mouse capture to report a single point position. The ``QPoint`` carries the point (x, y).
+
+   ``caHMIConfigValueSet(QVariant value)``
+      Emitted when a value is determined by the widget (either a literal SetValue or a calculated result). The ``QVariant`` carries the value, can be numeric or a string.
+
+   **Type of Output Channel Data**
+   The type of output varies depending on the configuration, here is a table depicting different output scenarios:
+
+   .. csv-table:: Output scenarios
+      :header: "outputA", "outputB", "captureType", "calculationType"
+
+      "pressed Key (`Mapping <https://doc.qt.io/qt-6/qt.html#Key-enum>`_)", "keyboard Modifiers (`Mapping <https://doc.qt.io/qt-6/qt.html#KeyboardModifier-enum>`_)", "KeyboardValue", "n/a"
+      "the literal value of valueOrCalc", "n/a", "KeyboardSet", "SetValue"
+      "result of the epics calc expression", "n/a", "KeyboardSet", "Calc"
+      "x coordinate of the mouse position", "y coordinate of the mouse position", "MouseMove", "n/a",
+      "x coordinate of the mouse position", "y coordinate of the mouse position", "MousePress", "n/a"
+
+--------------
+
+.. _wmSignalRescale:
+
+``wmSignalRescale``
+~~~~~~~~~~~~~~~~~~~
+has no equivalent in MEDM
+
+   **Description:**
+   The wmSignalRescale object is used to capture rescale events of its parent widget. This allows you to respond to rescale events by receiving the new size of the parent widget.
+   The object itself is invisible at runtime and does not interact with the user. It can be configured just like any other object in Qt Designer. You typically place it inside a ``caFrame`` or the main window to capture rescale events of that container.
+   The result of the rescale event can be sent to caCalc soft channels (``softChannelA`` and ``softChannelB``) or emitted via signals. This allows you to use the new size information in other parts of your panel.
+
+
+   **Properties:**
+   The following properties are available:
+
+   ``softChannelA``
+      1st Output, primary output route. Provides you with the width of the parent widget after a rescale event.
+      Type: caCalc soft channel name/identifier (string)
+
+   ``softChannelB``
+      2nd Output, secondary/alternative output route. Provides you with the height of the parent widget after a rescale event.
+      Type: caCalc soft channel name/identifier (string)
+
+   ``rectSignalPosition``
+      Defines the position and size information sent with the ``emitSignal(QRect rect)`` signal. The ``QRect`` carries the rectangle (x, y, width, height).
+      Type: QPoint (x, y)
+
+
+   **Signals:**
+   The following signals are emitted by the wmSignalRescale widget:
+
+   ``emitSignal(QRect rect)``
+      Emitted on rescale events to report the current size and the position defined in the ``rectSignalPosition`` property. The ``QRect`` carries the rectangle (x, y, width, height).
+
+   ``emitSignal(QSize size)``
+      Emitted on rescale events to report the current size. The ``QSize`` carries the size (width, height).
+
+   ``emitSignal(int width, int height)``
+      Emitted on rescale events to report the current width and height in pixels.
+
+   ``emitWidth(int width)``
+      Emitted on rescale events to report the current width in pixels.
+
+   ``emitHeight(int height)``
+      Emitted on rescale events to report the current height in pixels.
+
+   ``internalResizeEvent(...);``
+      Internal signal used to trigger the rescale event handling. This signal is not meant to be used directly.
+
+
+
+
+--------------
 
 Requirements
 -------------------------------
@@ -2503,7 +2830,8 @@ option                                    meaning
 ``-macrodefs filename``                   will load macro definitions from file
 
 ``-dg [xpos[xypos]][+xoffset[+yoffsets]`` specifies the geometry (location and size) of the synoptic display
-``-httpconfig``
+``-httpconfig``                           will display a network configuration screen at startup, see
+                                          :ref:`network-configuration-file`
 ``-print``                                print file and exit
 ``-savetoimage``                          will save image file and exit
 ``-cs defaultcontrolsystempluginname``    will override the default epics3 datasource
@@ -2534,6 +2862,43 @@ y = 100; and move the display window corresponding to def.ui to x =
 
    caQtDM -dg 100x100+100+100 abc.ui &
 
+.. _network-configuration-file:
+
+Network Configuration File
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When started with ``-httpconfig``, caQtDM shows a configuration screen where a
+url and a configuration file can be selected. The selection is stored in
+``caQtDM_IOS_Config.xml`` in the local download directory and reused on the
+next start.
+
+The configuration file itself is downloaded from the selected url. It is a
+plain text file with one environment variable per line, the name first and the
+value following after a blank::
+
+   EPICS_CA_MAX_ARRAY_BYTES 150000000
+   EPICS_CA_ADDR_LIST my-cagateway.example.org
+   CAQTDM_LAUNCHFILE overview.ui
+   CAQTDM_URL_DISPLAY_PATH https://example.org/panels
+
+The variables are applied before the panels are loaded and before the control
+system plugins are loaded, so they can be used to point caQtDM at a different
+gateway or panel repository.
+
+.. note::
+
+   Because this file is downloaded over the network, security relevant
+   variables can **not** be set from it. Rejected are the variables that
+   control loading of code or execution of commands, in particular
+   ``QT_PLUGIN_PATH``, everything starting with ``LD_`` or ``DYLD_``,
+   ``PATH``, ``CAQTDM_EXEC_LIST``, ``MEDM_EXEC_LIST``, ``CAQTDM_WEB_PATH``
+   and the ``PYTHON*`` variables. Rejected lines are reported in the
+   caQtDM message window and in the log.
+
+   This restriction applies only to the downloaded configuration file. All
+   these variables can still be set normally in the shell environment before
+   starting caQtDM.
+
 Description Files
 -----------------
 
@@ -2547,6 +2912,175 @@ The files are normally loaded from the current directory and/or from
 the directory specified by the environment variable
 CAQTDM_DISPLAY_PATH. The directories are specified with the separator
 ``:`` for linux and ``;`` for microsoft windows.
+
+Besides ``.ui`` files the viewer can also display in-house developed
+``.prc`` files, described in the next chapter (:ref:`prc_files`).
+
+.. _prc_files:
+
+PRC Description Files (pep resource files)
+------------------------------------------------
+
+Overview
+~~~~~~~~
+
+``.prc`` files are simple ASCII descriptions for tabular panels,
+originally used by the PSI TCL/TK tool *pep* written by Werner
+Portmann. One line of text describes one channel with its widget type
+and options; caQtDM converts the file on the fly into a ``.ui``
+description and displays it. This is the fastest way to get a working
+panel for a list of process variables: no editor is needed, any text
+editor will do.
+
+A ``.prc`` file can be used in three ways:
+
+- opened directly in caQtDM (like a ``.ui`` file),
+- referenced by a ``caInclude`` widget (property ``filename``),
+- converted to a ``.ui`` file with the command line tool ``prc2ui``
+  (``prc2ui [--large] [--verify] file.prc [out.ui]``).
+
+File structure
+~~~~~~~~~~~~~~
+
+Every non-comment line has the form::
+
+   channel  type  [options ...]
+
+Text containing blanks can be quoted with ``"..."``, ``'...'`` or
+``{...}``. Macros of the form ``$(NAME)`` are substituted the same way
+as for ``.ui`` files (e.g. via the macro definition of a ``caInclude``
+or the ``-macro`` start option). A conventional header line ``channel
+name  type  args`` is ignored. Lines starting with ``#`` are comments;
+lines starting with ``#!`` are directives (see below).
+
+Example::
+
+   #!title "vacuum overview"
+   #!grid 2
+   #channel name             type      args
+   comment comment -span 2 -fg blue sector 1
+   $(P):PRESSURE             formRead  9.2e -text "pressure"
+   $(P):STATUS               led       -ledstate "0 green 1 red"
+   $(P):I-SET                setRdbk   9.3 9.3
+   $(P):VALVE                binary    -text "valve open"
+
+Directives
+~~~~~~~~~~
+
+===================  ========================================================
+Directive            Meaning
+===================  ========================================================
+``#!grid N``         number of channels placed on the same line
+``#!title "text"``   window title of the panel
+``#!qtbg color``     background color of the panel (Qt color name or #rrggbb)
+``#!tab "label"``    starts a new tab page (caQtDM extension); as soon as
+                     one ``#!tab`` appears, the panel content is placed in
+                     a tab widget - useful for very long panels
+``#!setup file``     accepted and ignored (pep save/restore tooling)
+``#!printvar``       accepted and ignored
+===================  ========================================================
+
+The pep directives ``#!newline``, ``#!bg`` and ``#!ifmacro`` are not
+supported.
+
+Widget types
+~~~~~~~~~~~~
+
+The type keyword is case insensitive. The following types are
+available (the second column shows the caQtDM objects used):
+
+==================  =========================================  ==============================================
+Type                Rendered as                                Remark
+==================  =========================================  ==============================================
+``formRead``        caLabel + caLineEdit                       formatted readback of the channel
+``setRdbk``         caSpinbox, compare sign, caLineEdit,       composite for PSI power supplies; derives
+                    caChoice, caLineEdit                       ``:I-COMP``, ``:I-READ``, ``:ONOFF`` and
+                                                               ``:PS-MODE`` from the ``<device>:I-SET``
+                                                               channel; two formats = set + readback,
+                                                               one format = readback only
+``mactrl``          alias for ``setRdbk``
+``wheelSwitch``     caLabel + caSpinbox                        set value with digits from the format
+``led``             caLabel + caLed (+ alarm ring)             binary status; see ``-ledstate``
+``binary``          caLabel + caLineEdit + caToggleButton      readback and toggle
+``text``            caLabel + caLineEdit + caTextEntry         string readback and entry
+``entry``           caLabel + caTextEntry                      plain entry field
+``menuButton``      caLabel + caMenu                           enum menu
+``choiceButton``    caLabel + caChoice                         enum button row
+``slider``          caLabel + caSlider                         numeric token = step; see ``-trough``
+``bar``             caLabel + caThermo + caLineEdit            horizontal bar with numeric readback
+``compare``         two overlaid caLabels (=, unequal)         alarm colored comparison sign
+``messagebutton``   caLabel + caMessageButton                  writes the remaining line content to the
+                                                               channel on press; label from ``-label``
+``comment``         caLabel                                    free text line, no channel
+``separator``       Line                                       horizontal line
+==================  =========================================  ==============================================
+
+Formats are given as printf-like tokens, e.g. ``9.3`` (decimal),
+``9.2e`` (exponential), ``%8.3f``, ``4.1f`` or ``s`` (string); the
+leading ``%`` and the conversion character are optional (default
+``f``).
+
+Options
+~~~~~~~
+
+=====================  ======================================================
+Option                 Meaning
+=====================  ======================================================
+``-text "label"``      row label (default: the channel name)
+``-notext``            no row label
+``-desc``              row label shows the content of ``<channel>.DESC``
+``-span N``            item spans N grid columns
+``-OPR min max``       user limits for wheelSwitch / slider / bar
+``-visi cond``         widget is only visible when the condition is true,
+                       e.g. ``-visi PV==1`` (operators ==, !=, <, >, <=, >=)
+``-ledstate "list"``   value/color pairs for a led, e.g. ``"0 green 1 red"``;
+                       more than two states are rendered as stacked leds
+``-command "cmd"``     adds a related display button executing the shell
+                       command, labelled with ``-comlab``
+``-comlab "label"``    label for the ``-command`` button
+``-label "text"``      button text of a messagebutton
+``-width N``           entry width in characters
+``-minwidth N``        minimum width of the readback field in pixels
+``-comsize N``         font point size (comments and fields)
+``-fg color``          foreground color
+``-comfg color``       foreground color (comments)
+``-bg color``          background color
+``-comjust j``         comment justification (left, center, right)
+``-height N``          separator thickness
+``-linewidth N``       separator thickness (pep semantics)
+``-sepsize N``         separator thickness override
+``-sepbg color``       separator color
+``-trough [format]``   slider: show an additional numeric readback
+``-printvar format``   numeric format for the bar readback
+``-compact``           binary without readback field
+``-cegu "unit"``       overrides the engineering unit
+``-calc "expr"``       computed readback; the channel value is available
+                       as ``value`` (or ``A``) in the expression
+``-put``               accepted (asynchronous put is always used)
+``-hys``               accepted and ignored (the hysteresis widget of the
+                       old pep tool is not rendered anymore)
+``-confirm``           accepted and ignored (no confirmation dialogs)
+=====================  ======================================================
+
+Runtime switches
+~~~~~~~~~~~~~~~~
+
+With ``CAQTDM_PRC_LARGE_LAYOUT=1`` the panels are rendered with the
+historic (larger) sizes of the previous prc converter; the default is
+a compact, pep-like density. The additional variable
+``CAQTDM_PRC_CONVERTER`` (unset/0 = historic converter, 1 = new
+converter) is a development and testing switch only.
+
+Limitations
+~~~~~~~~~~~
+
+- ``-confirm`` has no equivalent, values are written without a
+  confirmation dialog.
+- ``#!setup`` (save/restore of the pep tool) is not implemented.
+- The historic converter is limited to 50 lines and 20 grid columns
+  and truncates longer panels silently; the new converter has no such
+  limits - for very long panels the ``#!tab`` directive can be used to
+  split the content into tabs.
 
 Connection Problems and Access Rights
 ------------------------------------------------------
@@ -2565,6 +3099,238 @@ Typewriter"*. In some cases where this font does not exist it will fall
 back to a font called "Monospace". However the "Lucida" font is really
 the appropriated font to display numbers and it is warmly advised to
 have this font installed.
+
+Plugins
+----------------------
+
+There are several plugins pre-built into caQtDM. These are meant to enable various data sources.
+Each channel in a ``.ui`` file has an associated plugin, which is dynamically used for the channel. 
+A plugin is used by defining the channel as ``pluginname://channel`` . By default, ``epics3`` is used for ``pluginname``.
+This can be overwritten by specifying the launch option: ``cs``, so e.g. ``caQtDM -cs opcua somefile.ui``
+starts ``somefile.ui`` with caQtDM, and each channel that does not have an explicit plugin will be
+associated with the opcua plugin. Since not all plugins are built on all platforms, their availability
+may vary. In the beginning, when caQtDM starts up, all initialized plugins are shown in the message window.
+
+Below are available plugins and how to use them.
+
+.. _archiveHTTP:
+Archive HTTP Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``archiveHTTP://CHANNEL``
+
+Using this plugin you can access archived data from archivers available through the data api. <https://data-api.psi.ch/api/4/docs/index.html>
+
+The plugin fetches data for a certain interval, trying to fetch all of it at once. If that fails, it refetches the missing data.
+It always refetches in a certain interval, and if any previously fetched data is still in the current timeframe, it is kept, as to reduce duplication.
+
+Building:
+	This plugin is always built. It has no additional dependencies. SSL is activated if Qt supports it and the ``CAQTDM_SSL_IGNORE`` environment variable is not defined.
+Channel Handling:
+	The plugin is meant to serve data that is a mapping between time and values. Thus, the returned data can be retrieved using virtual channels.
+	So instead of simply using ``archiveHTTP://CHANNEL`` you can do e.g. ``archiveHTTP://CHANNEL.X`` to get a one-dimensional array of the x-values. 
+	Virtual channels are not fetched separately, only the base channel is. Available are:
+	
+	- .X: ``archiveHTTP://CHANNEL.X`` - The timestamps
+	- .Y: ``archiveHTTP://CHANNEL.Y`` - the values (averages in case of binned data)
+	- .minY: ``archiveHTTP://CHANNEL.minY`` - in case of binned data: the minimum values for each bin
+	- .maxY: ``archiveHTTP://CHANNEL.maxY`` - in case of binned data: the maximum values for each bin
+
+Usage in caCartesianPlot:
+	The plugin is primarily meant to be used in combination with the caCartesianPlot widget.
+	To use it there, simply specify both virtual channels (as described above) in the channelList, first .X, then .Y/.minY/.maxY.
+	An example would be: archiveHTTP://SGE-CCOL-01787:VALVEPOSITION.X;archiveHTTP://SGE-CCOL-01787:VALVEPOSITION.Y
+	If you want to map Y-values not to time, but to their increasing indices, you can leave the first channel empty. In the designer, this is simply an empty entry in the channelList.
+
+Configuration:
+	The plugin is mainly configured using dynamic properties, as listed below. All dynamic properties, no matter the content, are default string values.
+	
+	- backend: The backend name given to the data api when fetching the channel. Has to correspond to one of these: <https://data-api.psi.ch/api/4/backend/list>
+	- nrOfBins: The desired number of bins. The actual number might be different, but data api tries to get as close as possible, while keeping some constraints for optimization/alignment purposes. To request raw data, don't specify this or set it to -1.
+	- secondsPast: The time interval that should be requested, in seconds. So if you want to display 10 minutes of data, set this to 600
+	- secondsUpdate: The interval, in which new data should be requested, so the fetch interval. If you want to request new data all 2 minutes, set this to 120. Cannot be lower than 10 seconds.
+	- archiverIndex: Allows for overriding the hostname to use for data-api. Should generally not be changed unless you know exactly what you are doing.
+	
+	Also have a look at the :ref:`environment variables <env.var>` for additional options.
+
+
+.. _bsread:
+BSREAD Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``bsread://CHANNEL``
+
+TBD
+
+.. _environment:
+Environment Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``environment://CHANNEL``
+
+There is an environment plugin which allows to get environment variables just like PVs.
+To use this plugin, the value of "channel" in the designer has to be set to "environment://yourEnvironmentVar"
+Then caQtDM will get the environment variable after "environment://", in this case "yourEnvironmentVar" and return it just like any other PV.
+
+.. _epics3:
+Epics 3 Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``epics3://CHANNEL``
+
+TBD
+
+.. _epics4:
+Epics 4 Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``epics4://CHANNEL``
+
+TBD
+
+.. _gps:
+GPS Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``gps://CHANNEL``
+
+TBD
+
+.. _modbus:
+Modbus Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``modbus://CHANNEL``
+
+TBD
+
+.. _opcua:
+OPC UA Plugin
+~~~~~~~~~~~~~~~~~~~~~
+
+Usage: ``opcua://CHANNEL``
+
+This plugin allows for direct access to OPC UA endpoints from your client.
+
+For a channel, you may use any OPC UA connection string (for the node you want to access), it should include the protocol (This must be ``opc.tcp://``),  hostname and port.
+The first part after the port needs to be either ``/ns=`` or ``/i=``.
+So including the plugin prefix, this is e.g. ``opcua://opc.tcp://localhost:4840/ns=10;i=12345``
+Since most OPC UA connection strings include a semicolon, which is used by caQtDM as a string separator, widgets that allow for multiple channels in a field don't work.
+So you cannot use regular connection strings in a caCartesianPlot, for example. To work around this, you could URL-encode the connection string. But that is difficult to maintain.
+As an alternative to this, you have the ability to use a translation table. This way, you can use simple identifiers in your UI-file, which dynamically maps to a complex connection string using said translation table.
+To use this, you have to create a text file and give its path to caQtDM using the environment variable ``CAQTDM_OPCUA_DATABASE``. You can also use the caQtDM option ``OPCUA_DATABASE``. You can specify multiple files by separating the paths with a comma.
+In this file, each line represents one mapping of a simple identifier to a connection string. Lines that start with a # are ignored, so you can comment lines out like this.
+Each line first has the simple identifier, then an equal sign, followed by the connection string. The strings should not include the plugin prefix. 
+An example would be: ``someOpcUaVariable=opc.tcp://localhost:4840/ns=10;i=12345``.
+Now, in your UI-file you simply write: ``opcua://someOpcUaVariable``.
+You can also utilize this to have dynamic resolutions based on different translation tables, or using macros. Macros are resolved before the UI-identifier reaches the OPC UA Plugin.
+This means you can use macros to construct the simple identifier, which is then checked for in the translation table, but you cannot use macros in the resolution specified in the resolution table.
+All loaded OPC UA translations are displayed in the caQtDM message window upon startup. Those translations are **ONLY** loaded upon caQtDM launch. Reloads have no effect.
+
+Building:
+	This plugin is NOT built by default. It is built only if the ``CAQTDM_OPCUA`` environment variable is set to be not empty. When building, make sure Qt has the QtOpcUa module available.
+	For it to build with encryption, it is neccessary that the QtOpcUa module was built with encryption. You can check this by searching for X509* headers (They exist = QtOpcUa was built with encryption). This is also how caQtDM detects at build-time whether or not to include the encryption stuff.
+	Since by default QtOpcUa with encryption has a dependency on the dynamic loading of openssl libraries, make sure these are also available at runtime. In the GitHub pipelines, as well as the packaging scripts, you can see what needs to be available. For this, especially qopensslbackend needs to be active in the TLS module, as well as libcrypto and libssl from openssl v3+.
+
+Certificate Creation:
+	In Qt-6 the certificate (and other pki stuff) is generated when caQtDM is started without such a configuration already existing. In Qt-5 it is not possible to auto-generate a certificate, thus secure communication as described below is impossible.
+	You can, however, generate your own certificate using the bash script provided in ``caQtDM_Plugins/opcua/create_certificate.sh``. This requires OpenSSL to be available on your system to run.
+	After generating the certificate (and key), simply place both files in the local appdata directory under ``/pki/own/[cert/private]``, respectively. caQtDM will automatically use this certificate next time.
+	CAUTION: Qt-5 does also not show very good errors, so if you see weird errors or simply a ``BadConnectionClosed``, it may be that your client certificate needs to be trusted first by the server. Qt-6 has dedicated error handling for that.
+
+Secure Communication using Signing / Encryption:
+	If your client was built with an encryption-enabled plugin, and the environment variable ``CAQTDM_OPCUA_ENABLE_CERTIFICATE`` is not empty, it will try to establish a secure connection first. If an endpoint or your client doesn't support a secure connection, a regular one will be used.
+	Generally speaking, the client will go through all available endpoints, choosing the one with the highest security to establish a connection.
+	Encryption & signing keys are generated the first time the plugin is loaded and stored in your local app data location. For signing, you may have to trust the client's certificate on the server first. For that, see the ``Certificate Authentication`` section below.
+	Due to a limitation in Qt-OpcUa, connections are currently only possible to endpoints supporting SecurityPolicy#None. This is because QtOpcUa always uses that SecurityPolicy for the initial connection, while discovering available endpoints. So even if it's required, the actual communication won't use that SecurityPolicy, if another is available.
+	It may be worth to implement a workaround in the future, allowing for a hardcoded endpoint description (skipping the discovery forcing SecurityPolicy#None). Feel free to open an issue if that is the case.
+	CAUTION: While Qt-6 prompts you to accept / reject unknown server certificates (unless overwritten via envs), Qt-5 doesn't do that. So you have no guarantee that the server you are connecting to has a trusted certificate.
+
+Authentication:
+	If you need to connect to an endpoint that is secured with authentication, this is also possible.
+	
+	- Username / Password | May be insecure, not recommended.
+		This can be useful, but depending on your configuration, it can be insecure, as the password may be sent in plain text, so everyone sniffing the network could read it.
+		If you want to test it, use Wireshark, it has an OPCUA filter, which will correctly decode it if its not encrypted.
+		To use a username and password, you can use the environment variables: ``CAQTDM_OPCUA_USERNAME_PLAIN`` and ``CAQTDM_OPCUA_PASSWORD_PLAIN``. Careful: This will be sent to every host you connect to, which might also lead to a compromise.
+		You can also specify the username and password using caQtDM widgets, to have it runtime-only. For this, you can use the channels ``opcua://username`` and ``opcua://password``.
+		These are writeable like regular channels, and the username is readable. The password channel won't show it's value in the UI. The written value will be saved, but a placeholder displayed on the UI. These channels are only accessible to the local caQtDM process.
+		If those channels are updated, all hosts that don't have host-specific credentials will have all their connections refreshed. This also means that every host you connect to will be given those credentials.
+		To specify credentials only for one specific host, add it (EXCLUDING protocol &  INCLUDING port) before ``/username`` or ``/password``. so e.g. ``opcua://localhost:4840/username`` and ``opcua://localhost:4840/password``.
+		This way, you can input credentials at runtime, which will only be used for a specific host, others won't see it. But again, it may be transmitted in plain text.
+	- Certificate Authentication | The recommended way.
+		DISCLAIMER: Certificate authentication in the sense of OPC UA isn't officially supported, as none of the test systems supported it, so it wasn't tested. It might not work due to QtOpcUa appearing to lack some functionality required, but feel free to try it. If you can test it, please send us the results!
+		DISCLAIMER: The section below is how it should work and how it does work for regular secure communication (but anonymous / username/password access).
+		To be safe, prefer certificate authentication, if possible. 
+		If encryption is available for your plugin version, it will automatically create a PKI configuration. So if you are connecting to a host that supports certificate authentication, it will try to connect using your config.
+		You can either find the certificate in your local app data directory (``QStandardPaths::AppLocalDataLocation``) or in most OPC UA servers it will show attempted certificates in the settings, so you can simply try to connect once, then add the certificate to the server allow-list and retry the connection.
+		The private key is encrypted by default using a placeholder password (You can find it in the source code). If you want added security, you can use the environment variable ``CAQTDM_OPCUA_PEM_PASSWORD`` to specify a password to use for encrypting your private key.
+		You can also set the PEM password at runtime, using the channel ``opcua://pem_password``. Updating the value does not automatically re-decrypt the certificate, reloading the window should trigger such a re-decrypt, though.
+		In case you forgot the PEM password you once set, you can always reset your PKI configuration (careful, this means caQtDM creates a new key & certificate, so you'll have to reauthenticate those everywhere) by setting the environment variable: ``CAQTDM_OPCUA_RESET_PKI_CONFIG`` to something non-empty.
+		**IMPORTANT** Resetting the PKI-config is done for each host and potentially on each reload. This is bad, so if you use this reset option, you should close it again after the first connection has been established, then unset the environment variable and continue without it. Using caQtDM while ``CAQTDM_OPCUA_RESET_PKI_CONFIG`` is set is not advised.
+		The certificate will be self-signed. Certificate and key are generated using QtOpcUa Classes and functions. Take a look at the source code if your concerned about it's security. Take a look at the Certificate-Creation-section to see how to generate it yourself.
+		
+Special Fields:
+	The EPICS-Extension fields .NELM and .FTVL are also supported and populated with the most-closely matching value from OPC UA. Due to differences in supported data-types .FTVL can differ from the actual value. .NELM is 1 for simple variables and the array-length for arrays.
+
+Supported OPC UA data types:
+	OPC UA offers many data types, not all are supported by the plugin. Here is a list of Qt-datatypes that are supported and what EPICS-datatypes they map to.
+	
+	- For simple values:
+		+-----------------------+----------+
+		| QMetaType::Double     | caDOUBLE |
+		+-----------------------+----------+
+		| QMetaType::Float      | caFLOAT  |
+		+-----------------------+----------+
+		| QMetaType::Int        | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::UInt       | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::LongLong   | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::ULongLong  | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::Long       | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::ULong      | caLONG   |
+		+-----------------------+----------+
+		| QMetaType::Short      | caINT    |
+		+-----------------------+----------+
+		| QMetaType::UShort     | caINT    |
+		+-----------------------+----------+
+		| QMetaType::Bool       | caINT    |
+		+-----------------------+----------+
+		| QMetaType::QString    | caSTRING |
+		+-----------------------+----------+
+	- For arrays:
+		All 1-dimensional arrays consisting of exactly one type that is supported for simple values are also supported. If the Qt-Type is ``QOpcUaMultiDimensionalArray``, so a multidimensional array, it will be flattened into a 1-D array. Writing back such flattened arrays will probably fail.
+
+Mappings:
+	Description and Timestamp (shown by ``Get Info`` dialog) are mapped from ``QOpcUa::NodeAttribute::Description`` and the server-timestamp returned by ``QOpcUaNode::serverTimestamp()``, respectively.
+	Access levels (read and write) are parsed from ``QOpcUa::NodeAttribute::UserAccessLevel``.
+
+Error handling:
+	If an attribute got a faulty value back from its monitor, that will be shown in the caQtDM message window. Failed connections will do the same. Connection Errors are shown separately, also in the message window.
+	You may find additional info produced via ``qDebug``s, which usually goes either to your terminal or system log-handler (e.g. in KDE).
+
+Connection:
+	Besides negotiating for the highest security that both the client and the server support, the plugin also scans hosts for the quickest endpoint. If no endpoints respond within a certain threshold, the connection is seen as a failure. Use ``CAQTDM_OPCUA_MAX_LATENCY`` (ms) to control this.
+	The default is 500ms. This only affects the initial establishment of a connection, and has no effect during the connection.
+	In Qt-6, you can also specify ``CAQTDM_OPCUA_SESSION_TIMEOUT`` (ms) to define how long a session should be kept open if no data changes occur. Beware: this is only a suggestion to the server, it may respond with a different timeout instead.
+	If this timeout is reached, so no monitored variable of a host changed its value within this time, and also no data was written by the client, the connection is closed. However, this immediately triggers a reconnect, as described below, so you should be fine.
+	Do NOT force-kill caQtDM unless absolutely necessary when OPC UA connections are open, since caQtDM usually won't have time to inform the server then. This leads to dangling connections that stay open until the timeout is reached. (Default is one hour)
+	So while longer timeouts may be more suitable in long-term monitoring use-cases, short timeouts are safer if you force-kill caQtDM every now and then.
+	The secure channel, as per OPC UA specs, is automatically renewed by Qt.
+
+Reconnect:
+	If the plugin cannot connect to a host, or an ongoing connection suddenly stops, it will try reconnecting with an increasing interval.
+	Reloading a panel unsubscribes from all variables in the panel (and disconnects from the hosts if no subscriptions are left) and reconnects them.
+	From Qt-6 onwards, reconnects apply a timeout of 2 * ``CAQTDM_OPCUA_MAX_LATENCY`` (ms).
+
+Configuration:
+	Look at the :ref:`environment variables <env.var>` for a look at possible configuration options.
+	Important: To use certificate operations, such as encryption via SSL, you need to explicitely set ``CAQTDM_OPCUA_ENABLE_CERTIFICATE`` to not be empty.
+	This is because then you will have to (for most OPCUA servers) add your certificate to the trusted list before being able to open a connection.
 
 General Properties
 ----------------------
@@ -2957,13 +3723,6 @@ By pressing the right mouse button on the background of your synoptic
 display you can get a context menu with the item "Print". Normally you
 should get a print dialog.
 
-Environment Plugin
-~~~~~~~~~~~~~~~~~~
-
-There is an environment plugin which allows to get environment variables just like PVs.
-To use this plugin, the value of "channel" in the designer has to be set to "environment://yourEnvironmentVar"
-Then caQtDM will get the environment variable after "environment://", in this case "yourEnvironmentVar" and return it just like any other PV.
-
 Unit Replacements
 ~~~~~~~~~~~~~~~~~
 
@@ -2976,28 +3735,182 @@ scanned for the given source characters ( or -sequences) and every occurrence wi
 given replacement characters ( or -sequence). Unit replacements do not affect the UI file or EPICS data
 and are purely visible and around for the caQtDM process that was started with them.
 To start a caQtDM process with custom unit replacements, the following environment variable has to be set with the wanted replacements:
-CAQTDM_CUSTOM_UNIT_REPLACEMENTS
+
+**CAQTDM_CUSTOM_UNIT_REPLACEMENTS**
+
 The syntax for the custom unit replacements is as follows:
 The characters are written either in utf-8 coded characters or as a hexadecimal or decimal code for the character in utf-8 coding.
-Hexadeciaml codes need to start with "0x", caQtDM will try to parse all other characters first as a decimal code, if they are not purely numerical it will
+Hexadecimal codes need to start with "0x", caQtDM will try to parse all other characters first as a decimal code, if they are not purely numerical it will
 interpret them as utf-8 coded characters. Multiple characters that should be treated as one string have to be seperated by comma (,). If you use utf-8 coded characters,
 you can also just write them as a string without the need for commas. so "hi" would be written as "0x48,0x69", or simply just "hi".
 Double quotes are possible but removed by caQtDM when parsing the environment variable, single quotes are treated literally as characters to replace, so don't use them to encapsulate.
 You have to first write the source characters you want to replace, then an equal sign (=) and finally the replacement characters that should be drawn instead. To set multiple
 character replacements, seperate them by semicolon (;). Parts that dont contain an equal sign but are seperated from other parts with semicolon are ignored. All put together this would be the structure:
-CAQTDM_CUSTOM_UNIT_REPLACEMENTS={sourceCharacters}={replacementCharacters};{anotherReplacement}
+
+``CAQTDM_CUSTOM_UNIT_REPLACEMENTS={sourceCharacters}={replacementCharacters};{anotherReplacement}``
+
 An example (that doesnt make much sense but displays many possibilities) would be:
-CAQTDM_CUSTOM_UNIT_REPLACEMENTS=charsToReplace=charsToUse;0x48,0x68=bye;charsWithHex,0x4f=something;�=o
+
+``CAQTDM_CUSTOM_UNIT_REPLACEMENTS=charsToReplace=charsToUse;0x48,0x68=bye;charsWithHex,0x4f=something;``
+
 It can be seen that all combinations of strings, hex- and deciaml character codes are possible to form a source or replacement string.
 All replacements will be done sequentially, with the leftmost replacements being done first. Therefore, it can also be possible, that later replacements replace characters in a string
 that has already been replaced before by another replacements.
 When doing custom unit replacements, always consider that your replacements might not be done to the original string from EPICS, but on the already
-processed string with the default unit replacements. To see how they are implemented, you might want to check out teh first few lines in caQtDM_Lib/src/mutexKnobData.cpp
+processed string with the default unit replacements. To see how they are implemented, you might want to check out the first few lines in 
+
+``caQtDM_Lib/src/mutexKnobData.cpp``
+
 There are already some default unit replacements that were introduced because common systems had difficulties displaying widely-used characters.
 Those unit replacements always take place before custom unit replacements, you can disable them by setting the following environment variable to "false":
-CAQTDM_DEFAULT_UNIT_REPLACEMENTS
+
+**CAQTDM_DEFAULT_UNIT_REPLACEMENTS**
+
 It is not recommended to disable them, as they are tested on all common systems and should be working with most clients, however disabling might help
 in some edge cases.
+
+.. _copy.past:
+
+Copying and selecting Text
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Multiple widgets support some kind of selection of their displayed values. All of them also enable copying of their values into the clipboard.
+They do not behave exactly the same, but their differences are relatively minor and mostly in how they are implemented: 
+
+**Comparison**
+
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| Widget                 | Ctrl+C | Ctrl+A | Behaviour on Single Click| Behaviour on Double-Click   |  Selection on Change  |
++========================+========+========+==========================+=============================+=======================+
+| caLineDraw             |  true  |  true  |  nothing                 |  marks entire text          |  retained             |
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| caLineEdit             |  true  |  true  |  nothing                 |  marks entire text          |  lost                 |
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| caMultiLineString      |  true  |  true  |  nothing                 |  marks entire text          |  lost                 |
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| caTable                |  true  |  true  |  marks current cell      |  deselects current cell     |  retained             |
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| caWaveTable            |  true  |  true  |  marks current cell      |  enables editing of cell    |  lost                 |
++------------------------+--------+--------+--------------------------+-----------------------------+-----------------------+
+| caTextEntry            |  true  |  true  |  enables editing of cell |  marks entire text          |  lost                 |
++------------------------+--------------------------------------------+-----------------------------+-----------------------+
+
+**Shortcuts**
+
+Although the widgets might work differently, the shortcuts are the same across all of them. The shortcuts use, if any exists, the industry standard that most people are familiar with.
+When no industry standard is available, caQtDM uses the Combination ``Ctrl+Alt``, in combination with the first letter of the action performed (Ex. **R** for **R**eload in ``Ctrl+Alt+R``).
+
++------------------+-----------------------------------------------------+
+| ``Ctrl+C``       | Copies currently selected text to clipboard         |
++------------------+-----------------------------------------------------+
+| ``Ctrl+A``       | Selects entirety of the text inside a widget        |
++------------------+-----------------------------------------------------+
+| ``Ctrl+Alt+D``   | Removes selection from all widgets currently marked |
++------------------+-----------------------------------------------------+
+| ``Ctrl+R``       | Reload current window                               |
++------------------+-----------------------------------------------------+
+| ``Ctrl+Alt+R``   | Reload all windows                                  |
++------------------+-----------------------------------------------------+
+| ``Ctrl+O``       | Open File                                           |
++------------------+-----------------------------------------------------+
+| ``Ctrl+P``       | Print                                               |
++------------------+-----------------------------------------------------+
+
+**CSV Copy and Paste**
+
+In caWaveTable, it is possible to copy and paste the contained data as CSV, using the context menu.
+Paste is only available if write-access is available. Pasting works with the same format as returned by copying.
+Pasting internally does the same as if you manually updated each cell and input the new value.
+
+By default, the column separator is a comma (,) and the row separator is a newline (\n).
+The separator can be changed by defining the environment variable ``CAQTDM_CSV_SEPARATOR``. It may only be a single char.
+
+If a custom header row is present (specified in the UI-File), then it will be added to the copied output, as the first line.
+Pasting a header is not possible. When pasted text has a first row that is detected to be a header row, that row is discarded.
+A row is detected to be a header row, when:
+- It is equivalent to the already present header row
+- It's first value cannot be converted to the same datatype as the first value of the second row
+
+.. _logging:
+Logging
+~~~~~~~~~~~~~~~~~~~~~
+
+Logging is available for caQtDM and can be configured with environment variables listed below, starting with "CAQTDM_LOGGING".
+Additionally, the loglevel and the categories to log can be configured using the Qt environment variable ``QT_LOGGING_RULES``.
+If you e.g. only want to see logs from the widgets, you can set it to be "caqtdm.widgets*=true". If you only want plugins, you can use: "caqtdm.plugins*=true".
+By default, only loglevel QtInfoMsg and higher is logged. Values like the examples above enable all levels for the activated categories. To only activate a certain category, use
+e.g. "caqtdm.widgets*.debug=false;caqtdm.widgets*.info=true". As you see, it is also possible to add multiple rules with ";". For further information, look at the official Qt Documentation. <https://doc.qt.io/qt-6/qloggingcategory.html>
+Rules are evaluated from left to right.
+
+Some available categories are:
+
+``qt``
+   category containing all Qt logs
+
+``caqtdm``
+   category containing all caQtDM specific logs.
+
+``caqtdm.plugins``
+   subcategory for all plugin specific logs
+
+``caqtdm.lib``
+   subcategory for all logs related to the caQtDM_Lib subproject.
+
+``caqtdm.widgets``
+   subcategory for all logs related to caQtDM Widgets. caQtDM Lib also uses these categories for widget-specific messages emitted by it.
+
+``caqtdm.viewer``
+   subcategpry for all logs related to the caQtDM_Viewer subproject.
+
+There are many more subcategories, which you can find by searching for "Q_LOGGING_CATEGORY(" in the sourcecode .h/.cpp files.
+
+By default, logging is only active to the console, with loglevel info and higher active, and simple formatting. (See below in the environment variables sections on how to configure this)
+In total, there are the following logging handlers available:
+
+``console``
+   prints logs to the stdout/stderr. Active by default.
+
+``file``
+   saves logs in a logfile, whose size is configureable. The file is in the local app data directory, from Qts QStandardPaths::AppLocalDataLocation. New files are created on each startup.
+
+``syslog``
+   directly calls the syslog() library, only available on unix-like operating systems.
+
+``logstash``
+   calls a configurable HTTP endpoint with the logs (meant for logstash). Has a default URL, but that is not guaranteed to work/be retrievable. Use your own backend if possible.
+   There is an example config you can use for your logstash service to parse the logs and forward them to Elastic, which you can find in caQtDM_Viewer/src/logging/example.conf.
+
+It should be noted that both file and logstash logging handlers buffer by default (configurable), whereas console and syslog logging are synchronous.
+If you change logging settings, it could negatively affect the performance of your caQtDM instance, as more log messages produces more overhead.
+The following table represents the data that was experimentally measured in a benchmark in March 2026. It can guide you if you want to configure your caQtDM differently than the default.
+There is a column called "%" which measures the reference value compared to the default configuration, rounded to the nearest percentage.
+
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| CONFIGURATION            | AVG (ms)    | %      | RUNS  | DESCRIPTION                                                  |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| default                  | 9836.71     | 100%   | 38    | No change of any involved environment variables              |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| silent                   | 9873.33     | 100%   | 30    | All loghandlers removed, logging rules to discard everything |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| local                    | 10173.00    | 103%   | 33    | Same as default, but with loghandlers: console, file         |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localAllInclQtVerb       | 235243.50   | 2391%  | 10    | Same as local, verbose console, logging rules are "*=true"   |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localAllInclQt           | 63523.91    | 646%   | 32    | Same as local, logging rules are "*=true"                    |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localDebug               | 24236.59    | 246%   | 34    | Same as local, logging rules are caqtdm*.debug and higher    |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localInfo                | 10315.24    | 105%   | 34    | Same as local, logging rules are caqtdm*.info and higher     |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localWarning             | 10260.94    | 104%   | 33    | Same as local, logging rules are caqtdm*.warning and higher  |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localCritical            | 10098.00    | 103%   | 25    | Same as local, logging rules are caqtdm*.critical and higher |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+| localFatal               | 9917.12     | 101%   | 40    | Same as local, logging rules are caqtdm*.fatal and higher    |
++--------------------------+-------------+--------+-------+--------------------------------------------------------------+
+
+Depending on your console (and of course the rest of your system, but the console is the biggest bottleneck with many logs.) these speeds may be different.
+This data was tested on window with CMD, caQtDM was observed to run quicker with the QtCreator "Application Output" default console.
 
 .. _env.var:
 Environment Variables
@@ -3010,6 +3923,8 @@ caQtDM uses the following environment variables:
 +------------------------------+-----------------------------------------------+
 | ``QT_PLUGIN_PATH``           | to find the plugins of qt and others          |
 +------------------------------+-----------------------------------------------+
+| ``QT_LOGGING_RULES``         | to configure loglevel and categories to log   |
++------------------------------+-----------------------------------------------+
 | ``EPICS_CA_ADDR_LIST``       | see EPICS Documentation                       |
 +------------------------------+-----------------------------------------------+
 | ``EPICS_CA_MAX_ARRAY_BYTES`` | see EPICS Documentation                       |
@@ -3017,63 +3932,89 @@ caQtDM uses the following environment variables:
 
 **from caQtDM:**
 
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_DISPLAY_PATH``              | A colon-separated (semi-colon-separated on    |
-|                                      | Mircosoft Windows) list of directories in     |
-|                                      | which to look for display files. Only looks   |
-|                                      | in the current working directory if not       |
-|                                      | specified. Related Displays have to be in     |
-|                                      | your current directory or in this path        |
-|                                      |                                               |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_URL_DISPLAY_PATH``          | paths to look for ui and stylesheet files     | 
-|                                      | to download via http                          |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_EXEC_LIST``                 | A list of commands for the Context Menu . See |
-|                                      | the :ref:`context.menu.customization` for     |
-|                                      | the format.                                   |
-+--------------------------------------+-----------------------------------------------+
-| ``MEDM_EXEC_LIST``                   | for backwards compatability                   |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_LAUNCHFILE``                | Enviroment file for Mobile devices            |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_TIMEOUT_HOURS``             | to exit caQtDM after some amount of time      |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_FINDRECORD_DIRECT``         | override all other find record settings       |
-|                                      | (direct json http download)                   |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_FINDRECORD_SRV``            | for autocompletion, the request URL           |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_FINDRECORD_FACILITY``       | search limitation for a facility              |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_FINDRECORD_LIMIT``          | search limit max number of entries            |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_DEFAULT_UNIT_REPLACEMENTS`` | if set to "false", default unit replacements  |
-|                                      | are disabled.                                 |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_CUSTOM_UNIT_REPLACEMENTS``  | define custom unit replacements. They are     |
-|                                      | replaced after default replacements took      |
-|                                      | place, if enabled.You can use unicode         |
-|                                      | characters or hexadecimal / decimal utf-8     |
-|                                      | character codes, seperated by (,) , (=)       |
-|                                      | and (;).                                      |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_SCREENSHOT_NAME``           | If caQtDM was started with -print this will   |
-|                                      | specify the name of the screenshot file       |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_SUPPRESS_UPDATES_ONLOAD``   | Disables widgets from being updated while a   |
-|                                      | file is being opened. This can reduce load    |
-|                                      | times of big panels by more than 50%.         |
-|                                      | Values: "TRUE", "FALSE" , without quotes      |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_CREATE_LOGFILE``            | If set to "TRUE", caQtDM will create a logfile|
-|                                      | containing all of the input from the message  |
-|                                      | window. If caQtDM exits successfully, this    |
-|                                      | file gets deleted after termination.          |
-+--------------------------------------+-----------------------------------------------+
-| ``CAQTDM_LOGFILE_PATH``              | This specifies the path where the logfile, if |
-|                                      | logging is active, will be stored.            |
-+--------------------------------------+-----------------------------------------------+
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_DISPLAY_PATH``                  | A colon-separated (semi-colon-separated on    |
+|                                          | Mircosoft Windows) list of directories in     |
+|                                          | which to look for display files. Only looks   |
+|                                          | in the current working directory if not       |
+|                                          | specified. Related Displays have to be in     |
+|                                          | your current directory or in this path        |
+|                                          |                                               |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_URL_DISPLAY_PATH``              | paths to look for ui and stylesheet files     | 
+|                                          | to download via http                          |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_EXEC_LIST``                     | A list of commands for the Context Menu . See |
+|                                          | the :ref:`context.menu.customization` for     |
+|                                          | the format.                                   |
++------------------------------------------+-----------------------------------------------+
+| ``MEDM_EXEC_LIST``                       | for backwards compatability                   |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LAUNCHFILE``                    | Enviroment file for Mobile devices            |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_TIMEOUT_HOURS``                 | to exit caQtDM after some amount of time      |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_FINDRECORD_DIRECT``             | override all other find record settings       |
+|                                          | (direct json http download)                   |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_FINDRECORD_SRV``                | for autocompletion, the request URL           |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_FINDRECORD_FACILITY``           | search limitation for a facility              |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_FINDRECORD_LIMIT``              | search limit max number of entries            |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_DEFAULT_UNIT_REPLACEMENTS``     | if set to "false", default unit replacements  |
+|                                          | are disabled.                                 |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_CUSTOM_UNIT_REPLACEMENTS``      | define custom unit replacements. They are     |
+|                                          | replaced after default replacements took      |
+|                                          | place, if enabled.You can use unicode         |
+|                                          | characters or hexadecimal / decimal utf-8     |
+|                                          | character codes, seperated by (,) , (=)       |
+|                                          | and (;).                                      |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_CSV_SEPARATOR``                 | The CSV Separator used in certain operations. | 
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_SCREENSHOT_NAME``               | If caQtDM was started with -print this will   |
+|                                          | specify the name of the screenshot file       |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_SUPPRESS_UPDATES_ONLOAD``       | Disables widgets from being updated while a   |
+|                                          | file is being opened. This can reduce load    |
+|                                          | times of big panels by more than 50%.         |
+|                                          | Values: "TRUE", "FALSE" , without quotes      |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_HANDLERS``              | Overwrites which handlers process qDebugs.    |
+|                                          | If set to be empty, qDebugs are not processed.|
+|                                          | Can be a comma separated list of these:       |
+|                                          | console, file, syslog, logstash               |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_CONSOLE_NO_FLUSH``      | If not empty, console logs will not be flushed|
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_CONSOLE_VERBOSE``       | If not empty, console logs will have more     |
+|                                          | infos than just the message, so context infos |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_FILE_COUNT``            | Specifies the maximum number of logfiles.     |
+|                                          | Each startup creates one under LOCALAPPDATA.  |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_FILE_SIZE``             | Specified the maximum logfile size.           |
+|                                          | The size may be exceeded by a bit.            |
++------------------------------------------+-----------------------------------------------+
+| ``CAQTDM_LOGGING_FILE_BUFFER_TIMEOUT``   | Specifies the timeout, in which the logfile   |
+|                                          | will be written to with all buffered logs.    |
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_LOGGING_FILE_BUFFER_SIZE``       | Specifies the amount of logs to buffer before |
+|                                          | writing to the file. Extends the timeout check|
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_LOGGING_LOGSTASH_URL``           | The full HTTP(s) API Endpoint to post logs to.|
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_LOGGING_LOGSTASH_BUFFER_TIMEOUT``| Same as for file-logging                      |
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_LOGGING_LOGSTASH_BUFFER_SIZE``   | Same as for file-logging                      |
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_LOGGING_INCLUDE_MESSAGEWINDOW``  | If not empty, message window logs are debugged|
++------------------------------------------+-----------------------------------------------+
+|``CAQTDM_NO_CUSTOM_LOGHANDLER``           | Build: disables building of custom logging.   |
++------------------------------------------+-----------------------------------------------+
 
 **from plugins:**
 
@@ -3104,9 +4045,340 @@ caQtDM uses the following environment variables:
 | ``CAQTDM_ARCHIVEHTTP_APIPATH_LIST``   | Overwrite the default path to fetch the list of available |
 |                                       | backends. Needs to be in the format: /path/to/backend/list|
 +---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_ARCHIVEHTTP_NO_TIMEOUT``     | If this is set, errors will not create a timeout.         |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_DATABASE``             | File with translations for opcua channels. To use e.g.    |
+|                                       | opcua://CHANNEL specify CHANNEL=opc.tcp://restofuri       |
+|                                       | Each line in the file is a translation.                   |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_ENABLE_CERTIFICATE``   | If empty, endpoints with signing / encryption are ignored |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_MAX_LATENCY``          | Max latency (ms) endpoints may have when trying to connect|
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_PASSWORD_PLAIN``       | Password to use for all endpoints: MAYBE SENT UNENCRYPTED!|
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_PEM_PASSWORD``         | Password to use to unlock PEM for certificate auth.       |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_RESET_PKI_CONFIG``     | If set, caQtDM recreates entire PEM config, incl. PEM pwd |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_SESSION_TIMEOUT``      | Session timeout  (ms) for opcua connections.              |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_USERNAME_PLAIN``       | Username to use for all endpoints: MAYBE SENT UNENCRYPTED!|
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_IGNORE_UNTRUSTED_CERT``| If not empty, caQtDM auto-connects to untrusted servers   |
++---------------------------------------+-----------------------------------------------------------+
+| ``CAQTDM_OPCUA_REJECT_UNTRUSTED_CERT``| If not empty, caQtDM won't connect to untrusted servers,  |
+|                                       | but there will also be no prompt to trust the server cert |
++---------------------------------------+-----------------------------------------------------------+
 | ``CAQTDM_OPTIMIZE_EPICS3CONNECTIONS`` | Disable Epics3 connections when tabwidget is not active   |
 |                                       | Set to "TRUE" to activate                                 |
 +---------------------------------------+-----------------------------------------------------------+
 | ``CAQTDM_MODBUS_DATABASE``            | Database to use for the modbus plugin                     |
 +---------------------------------------+-----------------------------------------------------------+
+
+.. _signal-handling:
+
+Signal / Ctrl+C handling
+-------------------------
+
+Windows
+~~~~~~~~
+
+On Windows, you can gracefully stop caQtDM by pressing Ctrl+C in the console where it is running. This will trigger a shutdown sequence that allows caQtDM to clean up resources and exit properly.
+
+Note: This only works if caQtDM is either started from cmd or a bash script, if you start it from a double-clickable executable, there is no console attached and thus Ctrl+C will not work.
+In PowerShell, Ctrl+C doesn't work because PowerShell provides you with a new prompt instead of blocking whilst caQtDM is running, so Ctrl+C will not be sent to the caQtDM process.
+
+Unix (Linux, MacOs, FreeBSD, etc.)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On Unix-like systems, you can gracefully stop caQtDM by pressing Ctrl+C in the terminal where it is running. This will send a SIGINT signal to the caQtDM process, which will trigger a shutdown sequence that allows caQtDM to clean up resources and exit properly.
+
+Alternatively, you can also send a SIGTERM signal to the caQtDM process using the ``kill -SIGTERM <PID>`` command or similair methods. This will trigger the same shutdown sequence as pressing Ctrl+C.
+
+caQtDM Web
+----------
+
+It is possible to run caQtDM as a web server application using
+`qnovnc-platform-plugin <https://github.com/CraftingDragon007/qnovnc-platform-plugin>`__. This allows you to run caQtDM in a headless
+environment and access it through a web browser.
+
+Note: On windows the qnovnc-platform-plugin is currently only available in read-only mode, so user interactions are not possible.
+
+Docker setup (easiest)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _prebuilt-images:
+
+Prebuilt images
+^^^^^^^^^^^^^^^^^^^^^
+
+You can use prebuilt Docker images available on the GitHub Container Registry.
+
+To use those you can configure a docker-compose.yml file like this:
+
+.. code:: yaml
+
+   services:
+      nginx:
+         image: ghcr.io/craftingdragon007/caqtdm_nginx:feature-web_control
+         ports:
+            - "127.0.0.1:8443:443" # Remove 127.0.0.1: if you want to expose caQtDM Web to all network interfaces, and change the ports as needed
+            - "127.0.0.1:8080:80"
+         networks:
+            - caqtdm-web
+         environment:
+            - PROXY_BACKEND=http://caqtdm
+            - BASIC_AUTH_USER=user # Authentication is optional, you can just remove these two lines if you don't need it
+            - BASIC_AUTH_PASSWORD=password
+
+      caqtdm:
+         image: ghcr.io/craftingdragon007/caqtdm_web:feature-web_control
+         volumes:
+            - path_to_your_panels:/app/caqtdm_display_path # Replace with the path to your .ui files
+         environment:
+            - ENTRY_PANEL=your-main.ui # Replace with your main .ui file
+            - EPICS_CA_ADDR_LIST=your_epics_ca_addr_list # Replace with your EPICS CA address list
+
+   networks:
+      - caqtdm-web
+
+
+Make sure to replace the placeholders with your actual paths and settings.
+
+NOTE: multicast/broadcast doesn't work in docker networks, so you need to specify the ioc address(es) for unicast access here
+or use a channel access gateway that runs on the host network and allows unicast access to the iocs, see :ref:`broadcasting-multicast-docker` for more details
+
+To start the services, run:
+
+.. code:: bash
+
+   docker compose up -d
+
+
+Building your own Docker image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+NOTE: Ensure that you have cloned the novnc client submodule in the caQtDM repository, as it is required for the web client functionality. You can do this by running the following command in the root of the caQtDM repository:
+
+.. code:: bash
+
+   git submodule update --init --recursive
+
+To build your own Docker image for caQtDM Web, you can cd into the ``caQtDM_Web/docker`` directory and run the following command:
+
+.. code:: bash
+
+   docker compose build
+
+This will build the Docker image with caQtDM and the qnovnc-platform-plugin included.
+
+Make sure to adjust the compose.yaml file as needed for your setup, similar to the example provided with :ref:`prebuilt-images`.
+
+
+.. _broadcasting-multicast-docker:
+
+Using broadcast/multicast for ioc access
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default, caQtDM Web when running in docker uses unicast to access the ioc, which means that it will only listen for updates from the ioc specified in the EPICS_CA_ADDR_LIST environment variable.
+NOTE: This is not a limitation of caQtDM Web itself, but a limitation of docker networks, as they do not support multicast / broadcast traffic or the necessary routing.
+If you need to access subnets via broadcast / multicast, you'll need to add a channel access gateway to your setup, you can take a look at ``caQtDM_Web/docker/compose.yaml`` for an example of how to set up caQtDM Web with `ca-gateway <https://github.com/epics-extensions/ca-gateway>`__.
+Of couse this gateway would need to be run on the host network (look at the compose.yaml to see how) to be able to receive the broadcast / multicast traffic from the ioc.
+
+Multiple instances
+^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to run multiple instances of caQtDM Web on the same machine, for example to serve different panels with a different EPICS_CA_ADDR_LIST.
+To do this, simply start the ``compose.multi.yaml`` located in the ``caQtDM_Web/docker`` directory inside the caQtDM repository with the following command:
+
+.. code:: bash
+
+   docker compose -f compose.multi.yaml up -d
+
+You can adjust the behaviour of each instance by adjusting the environment variables in the ``compose.multi.yaml`` file.
+
+Normal Setup
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Prerequisites
+^^^^^^^^^^^^^^
+
+To set up caQtDM Web, you need to have the following prerequisites:
+
+- A working and up-to-date installation of caQtDM
+- CMake and a C++ compiler to build the qnovnc-platform-plugin
+- Zlib (or zlib-ng) development files (for building the qnovnc-platform-plugin, usually already included in most linux distributions, included in qt for windows)
+- If you haven't built caQtDM from source, you also need to install the following Qt module development files, as they are required for building the qnovnc-platform-plugin:
+   - Qt Core
+   - Qt Gui
+   - Qt Network
+   - Qt WebSockets
+- A web server/reverse proxy (e.g., nginx, Caddy) to serve the web client files and to route requests, see :ref:`reverse-proxy`
+- Optional: SSL certificates for secure connections (can be handled by the reverse proxy)
+
+Setup caQtDM with qnovnc-platform-plugin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To set up caQtDM with qnovnc-platform-plugin, follow these steps:
+
+1. Clone the qnovnc-platform-plugin repository and build the plugin according to the instructions provided in the repository.
+
+2. Place the built plugin in either the Qt plugins directory or specify its location using the ``QT_PLUGIN_PATH`` environment variable.
+
+3. Start caQtDM with the following command:
+
+   .. code:: bash
+
+      caQtDM -server -novnc your-main.ui
+
+   Replace ``your-main.ui`` with the path to your main caQtDM UI that should be served by default.
+
+4. Setup a reverse proxy by following the steps in :ref:`reverse-proxy`
+
+Shutting down caQtDM Web
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can shut down caQtDM Web by sending a signal to the process, see the :ref:`signal-handling` section for more details.
+
+.. _reverse-proxy:
+
+Reverse proxy setup for caQtDM Web (required)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is needed to set up a reverse proxy in front of the caQtDM Web server to handle routing between multiple instances and to serve the web client files.
+
+The cool thing about reverse proxies is that they can also handle SSL termination and basic authentication (Configuration included in the caqtdm version of the nginx docker image :ref:`prebuilt-images`), so you can also ensure a secure connection to your caQtDM Web server.
+
+And because we are using a reverse proxy we don't need to open caQtDM Web's ports to the public, only the reverse proxy's ports need to be accessible.
+
+You can find example configurations for setting up nginx or Caddy as a reverse proxy in the ``caQtDM_Web`` directory of the caQtDM repository.
+
+Nginx
+>>>>>>
+
+The nginx template file is named ``caqtdm_web.conf.template``. You can copy this file to your nginx configuration directory and rename it to ``caqtdm_web.conf``.
+Please make sure to at least replace the following placeholders:
+
+- ``_INSTALL_HOSTNAME_`` with the hostname or IP address where caQtDM Web will be accessible.
+- ``_INSTALL_CERT_BASENAME_`` with the base name of your SSL certificate files (without the .crt or .key extension).
+
+You can also adjust other settings as needed, such as enabling basic authentication or switching to HTTP if SSL is not required.
+After configuring nginx, make sure to enable the configuration and restart nginx to apply the changes.
+
+.. code:: bash
+
+   # Debian/Ubuntu example
+   sudo cp caqtdm_web.conf.template /etc/nginx/sites-available/caqtdm_web.conf
+   sudo ln -s /etc/nginx/sites-available/caqtdm_web.conf /etc/nginx/sites-enabled/caqtdm_web.conf
+   sudo systemctl restart nginx
+
+   # Red Hat/CentOS example
+   # There is no sites-available/sites-enabled structure by default, just copy the file to conf.d
+   sudo cp caqtdm_web.conf.template /etc/nginx/conf.d/caqtdm_web.conf
+   sudo systemctl restart nginx
+
+   # Alpine / Gentoo (non systemd) example
+   # Also no sites-available/sites-enabled structure by default, just copy the file to conf.d
+   sudo cp caqtdm_web.conf.template /etc/nginx/conf.d/caqtdm_web.conf
+   sudo rc-service nginx restart
+
+
+Caddy
+>>>>>>
+
+The Caddy config is named ``Caddyfile``.
+
+You can change it as needed, there are no required changes, but you might want to adjust the domain name.
+After configuring Caddy, make sure to copy the ``Caddyfile`` to the appropriate location (e.g., ``/etc/caddy/Caddyfile``) and restart Caddy to apply the changes.
+For example, if you are using systemd:
+
+.. code:: bash
+
+   sudo systemctl restart caddy
+
+For testing purposes, you can also run Caddy directly from the command line:
+
+.. code:: bash
+
+   caddy run --config /path/to/Caddyfile
+   # Use sudo if using privileged ports (<1024, e.g., 443 or 80)
+
+Others
+>>>>>>>
+
+You can also use other reverse proxies like Apache HTTP Server or Traefik.
+Please refer to their respective documentation for setting up a reverse proxy to forward requests to the caQtDM Web server.
+
+You can look at the ``caqtdm_web.conf.template`` and ``Caddyfile`` files for guidance on the necessary settings.
+
+Adjusted behaviour in web mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When running in web mode, caQtDM will adjust some of its behaviour to better suit the web environment:
+
+.. csv-table::
+   :header: "Feature", "Adjusted Behaviour in Web Mode"
+
+   "Message Window", "Messages are also sent to the web client and can be viewed in the web interface by clicking on the message button in the top right corner. You can only see messages that were generated after you opened the web interface, there is no message history for the web client, tip: reload your panel to see log output from panel initialization"
+   "Printing", "Panel printing is not supported in web mode (we don't want to print from a server or service user), so any actions that would normally trigger a print dialog is disabled/hidden."
+   "Tooltips", "Tooltips are disabled in web mode to prevent one user's tooltip from being shown to all users, which could lead to confusion."
+   "Window Size", "By default, caQtDM Web will use a virtual display the same size as the panel being served (dynamically parsed at start time), but you can also specify a custom size using the ``CAQTDM_VIRTUAL_WIDTH`` and ``CAQTDM_VIRTUAL_HEIGHT`` environment variables (This will force scale the widget to that size, this may not look ideal if your panel isn't configured to be resized). The virtual display is used to render the panel, which is then streamed to the web client. This allows caQtDM Web to work even in headless environments without a physical display."
+   "Starting panels", "The panel specified with a caQtDM Web server will be served by default, but you can also start other panels by using caRelatedDisplays, the web launcher or by building your own url with the url builder (in the web interface) to start a panel of your choice. When starting new panels, they will be started as new instances of caQtDM Web in a new tab (except if you directly adjust the url to open in the same tab)."
+   "Splash screen", "The splash screen is disabled in web mode, instead the loading process is shown as a progress bar in the menu bar."
+   "``caRelatedDisplay``", "When clicking a related display from the web interface, a new instance of caQtDM Web will be started to serve the related display, instead of opening it in the same instance. You and other users will then be asked if you want to open the related display in a new tab"
+   "``caScriptButton`` / ``caShellCommand``", "When clicked, these buttons will just show an error message, because executing scripts or commands from a web interface can be a security / availability (undefined behavior) risk, so this functionality is disabled in web mode. (Another Reason: It is not possible to display other graphical applications besides caQtDM panels.) You can still use these buttons in web mode if you enable the ``-web_allow_insecure_cashell_commands`` option, but make sure you understand the implications and only use it if you are sure about the commands being executed and the users using your web interface."
+   "``caMimeDisplay``", "Clicking on a caMimeDisplay will over you to open urls in new tabs and to copy file names to the clipboard, but it will not be able to open files on the server or show previews of files."
+
+
+caQtDM Web specific configuration options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Command line options
+^^^^^^^^^^^^^^^^^^^^^
+
+
+When running caQtDM as a server, you can use the following command line options in addition to the regular caQtDM options:
+
+.. csv-table::
+   :header: "Option", "Description", "Notes", "Default"
+
+   "``-server``", "Run caQtDM as a web server", "Required for web mode", ""
+   "``-novnc``", "Enable qnovnc-platform-plugin for web access", "Required for web mode using qnovnc", ""
+   "``-novnc_readonly``", "Run caQtDM Web in read-only mode, disabling user interactions", "Useful for public displays", "none = Disabled"
+   "``-slave_server``", "Runs caQtDM Web like without management features (doesn't start new instances by itself)", "This is used internally when starting new instances from the main process, for example via caRelatedDisplay", "none = Disabled"
+   "``-server_port``", "The port on which the graphical server will listen", "For the main process this should be the start of a large port range + 1, for slave processes it will be assigned automatically", "30001"
+   "``-web_server_port``", "The port on which the management web socket server will listen", "For the main process this should be the start of a large port range, for slave processes it will be assigned automatically", "30000"
+   "``-web_timeout``", "Timeout in seconds for shutdown after inactivity (min. 76)", "Applies only to child processes. If no clients are connected for this amount of time, the server will shut down", "none = Disabled"
+   "``-web_instance_limit``", "Maximum number of caQtDM Web instances that can be started by the main process", "Limits resource usage, available port range has to be 2x this value", "1000"
+   "``-web_interaction_timeout``", "Change -web_timeout behaviour to trigger only when no user interactions happened for the given time", "Can only be used in combination with -web_timeout", "none = Disabled"
+   "``-host``", "Hostname or IP address to bind the web server to", "Useful if you have multiple network interfaces, has to be a valid IP address or hostname", "127.0.0.1"
+   "``-web_launcher_root_file``", "Path to a `pylauncher <https://github.com/paulscherrerinstitute/pylauncher>`__ json file that will be parsed and shown in the web ui", "Allows launching predefined panels from the web interface. If your file includes other launcher files, please ensure that those files can all be found directly or via ``CAQTDM_DISPLAY_PATH``", "none = Disabled"
+   "``-web_allow_insecure_cashell_commands``", "Allows :ref:`caShellCommand` and :ref:`caShellScript` execution from the web interface", "This can be a security risk, only enable if you are sure about the implications. If you enable this also make sure that your commands only invoke simple command line actions, it is not possible to display other graphical applications besides caQtDM panels", "none = Disabled"
+
+
+Enviroment variables
+^^^^^^^^^^^^^^^^^^^^^
+
+Regular
+>>>>>>>>
+
+You can use the following environment variables in addition to the regular caQtDM environment variables to configure caQtDM Web:
+
+.. csv-table::
+   :header: "Environment Variable", "Description", "Notes"
+
+   "``CAQTDM_VIRTUAL_WIDTH``", "Width of the virtual display used by caQtDM Web", "Default is determined automatically based on the panel size"
+   "``CAQTDM_VIRTUAL_HEIGHT``", "Height of the virtual display used by caQtDM Web", "Default is determined automatically based on the panel size"
+
+Docker specific
+>>>>>>>>>>>>>>>>
+
+When running caQtDM Web in a Docker container, you can use the following additional environment variables to configure the setup:
+
+.. csv-table::
+   :header: "Environment Variable", "Description", "Notes"
+
+   "``ENTRY_PANEL``", "Path to the main caQtDM UI file that should be served by default", "Required, default is the test panel if not specified"
+   "``EXTRA_ARGS``", "Additional command line arguments to pass to caQtDM, as docker would not allow passing them directly", "Optional, default is empty"
 

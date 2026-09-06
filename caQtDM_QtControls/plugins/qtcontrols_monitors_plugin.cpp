@@ -43,65 +43,7 @@
 #include <QDebug>
 
 #include "designerPluginTexts.h"
-
-typedef char strng[40];
-typedef char longtext[500];
-
-static QString XmlFunc(const char *clss, const char *name, int x, int y, int w, int h,
-                strng *propertyname, strng* propertytype, longtext *propertytext, int nb)
-{
-#ifndef DESIGNER_TOOLTIP_DESCRIPTIONS
-    Q_UNUSED(propertytext);
-#endif
-    QString mess = "";
-    QString strng1 = "";
-    QString strng2 = "";
-
-    mess = "<ui language=\"c++\"><widget class=\"%1\" name=\"%2\">\
-            <property name=\"geometry\">\
-            <rect>\
-            <x>%3</x>\
-            <y>%4</y>\
-            <width>%5</width>\
-            <height>%6</height>\
-            </rect>\
-            </property>\
-            </widget>";
-
-     mess = mess.arg(clss).arg(name).arg(x).arg(y).arg(w).arg(h);
-
-    if(nb > 0) {
-        strng1 = " <customwidgets><customwidget><class>%1</class><propertyspecifications>";
-        strng1 = strng1.arg(clss);
-        for(int i=0; i<nb; i++) {
-#ifdef DESIGNER_TOOLTIP_DESCRIPTIONS
-            QString strng3 = "<tooltip name=\"%1\">%2</tooltip>";
-            strng3 = strng3.arg(propertyname[i]).arg(propertytext[i]);
-            strng1.append(strng3);
-#endif
-            if(strstr(propertytype[i], "multiline") != (char*) Q_NULLPTR) {
-                strng2 = " <stringpropertyspecification name=\"%1\" notr=\"true\" type=\"%2\"/>";
-                strng2 = strng2.arg(propertyname[i]).arg(propertytype[i]);
-            }
-            strng1.append(strng2);
-        }
-        strng1.append(" </propertyspecifications></customwidget></customwidgets>");
-
-    }
-    mess.append(strng1);
-    mess.append("</ui>");
-
-  //control output in formatted xml format
-/*
-  QString formattedOutput;
-  QDomDocument doc;
-  doc.setContent(mess, false);
-  QTextStream writer(&formattedOutput);
-  doc.save(writer, 4);
-  qDebug() << formattedOutput;
-*/
-    return mess;
-}
+#include "plugin_xml_helper.h"
 
 CustomWidgetInterface_Monitors::CustomWidgetInterface_Monitors(QObject *parent): QObject(parent), d_isInitialized(false)
 {
@@ -112,11 +54,16 @@ void CustomWidgetInterface_Monitors::initialize(QDesignerFormEditorInterface *fo
     if (d_isInitialized) return;
     d_isInitialized = true;
 
+    QLoggingCategory::setFilterRules("*=false");
+
 #ifndef MOBILE
         // for edition of channel/pv
         QExtensionManager *manager = formEditor->extensionManager();
         Q_ASSERT(manager != 0);
         manager->registerExtensions(new PVTaskMenuFactory(manager),
+                                    Q_TYPEID(QDesignerTaskMenuExtension));
+        // for edition of the generic soft pv options
+        manager->registerExtensions(new GenSoftPVTaskMenuFactory(manager),
                                     Q_TYPEID(QDesignerTaskMenuExtension));
 #else
     Q_UNUSED(formEditor);
@@ -559,6 +506,30 @@ caCalcInterface::caCalcInterface(QObject* parent) : CustomWidgetInterface_Monito
     d_icon = qpixmap.scaled(70, 70, Qt::IgnoreAspectRatio, Qt::FastTransformation);
 }
 
+QWidget *genSoftPVInterface::createWidget(QWidget* parent)
+{
+    return new genSoftPV(parent);
+}
+
+genSoftPVInterface::genSoftPVInterface(QObject* parent) : CustomWidgetInterface_Monitors(parent)
+{
+    strng name[2], type[2] = {"", ""};
+    longtext text[2] = {"channel name for the internal plugin, referenced as internal://<variable>",
+                        "initial value: scalar, text or ';' separated list for waveforms"};
+
+    strcpy(name[0], "variable");
+    strcpy(type[0], "multiline");
+    strcpy(name[1], "value");
+    strcpy(type[1], "multiline");
+
+    d_domXml = XmlFunc("genSoftPV", "gensoftpv", 0, 0, 100, 20, name, type, text, 2);
+    d_toolTip = "[define generic soft process variable of any EPICS type for the internal plugin]";
+    d_name = "genSoftPV";
+    d_include = "genSoftPV";
+    QPixmap qpixmap = QPixmap(":pixmaps/genSoftPV.png");
+    d_icon = qpixmap.scaled(70, 70, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+}
+
 QWidget *caWaterfallPlotInterface::createWidget(QWidget* parent)
 {
     return new caWaterfallPlot(parent);
@@ -678,6 +649,7 @@ CustomWidgetCollectionInterface_Monitors::CustomWidgetCollectionInterface_Monito
     d_plugins.append(new caBitnamesInterface(this));
     d_plugins.append(new caCameraInterface(this));
     d_plugins.append(new caCalcInterface(this));
+    d_plugins.append(new genSoftPVInterface(this));
     d_plugins.append(new caWaterfallPlotInterface(this));
     d_plugins.append(new caScan2DInterface(this));
     d_plugins.append(new caLineDrawInterface(this));

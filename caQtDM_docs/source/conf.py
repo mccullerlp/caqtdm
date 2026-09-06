@@ -10,7 +10,7 @@ project = "caQtDM"
 copyright = "2012-2025, Anton Mezger, Helge Brands"  # GPL3
 author = "Anton Mezger, Helge Brands"
 release = "4.5.0"
-root_doc = "documentation"
+root_doc = "index"
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,3 +36,15 @@ exclude_patterns = []
 # html_theme = 'sphinxdoc'
 html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
+html_favicon = 'favicon.ico'
+
+html_theme_options = {
+    # This removes the left sidebar entirely
+    "show_nav_level": 0,
+    "navigation_depth": 0,
+    "primary_sidebar_end": [],
+}
+
+html_sidebars = {
+    "**": []
+}
