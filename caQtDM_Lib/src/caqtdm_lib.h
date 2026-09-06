@@ -347,6 +347,7 @@ private:
     void scanChildren(QList<QWidget*> children, QWidget *tab, int i);
     QWidget* getTabParent(QWidget *w1);
     QString treatMacro(QMap<QString, QString> map, const QString& pv, bool *doNothing, QString widgetName = "");
+    QString expandMacroReadFiles(const QString& macroString, const QString& context);
     void scanWidgets(QList<QWidget*> list, QString macro);
     void HandleWidget(QWidget *w, QString macro, bool firstPass, bool treatPrimaries);
     void closeEvent(QCloseEvent* ce);

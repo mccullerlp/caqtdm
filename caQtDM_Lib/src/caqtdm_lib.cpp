@@ -2489,6 +2489,12 @@ void CaQtDM_Lib::HandleWidget(QWidget *w1, QString macro, bool firstPass, bool t
         //printf("\n treatMacro:%s\n", qasc(macros));
         QStringList macroList = macros.split(";", SKIP_EMPTY_PARTS);
 
+        // special case where macros are coming from a macro definition file
+        // when specified with %(read filename) in the macro property; expand for every macro set
+        for(int j = 0; j < macroList.count(); ++j) {
+            macroList[j] = expandMacroReadFiles(macroList[j], "caInclude");
+        }
+
         int adjustMargin = includeWidget->getMargin();
 
         // loop on this include with different macro
@@ -3551,6 +3557,75 @@ QString CaQtDM_Lib::handle_Macro_Scan(QString Text,QMap<QString, QString> map,ma
     }
     return Text;
 
+}
+
+/**
+  * expand macro definition files that are specified as %(read filename) inside a macro list
+  * (a comma separated list of key=value pairs). Used for the arguments of caRelatedDisplay and
+  * for the macro property of caInclude. Macros inside the filename have to be resolved by the
+  * caller (treatMacro) before calling this routine.
+  */
+QString CaQtDM_Lib::expandMacroReadFiles(const QString& macroString, const QString& context)
+{
+    if(!macroString.contains("%")) return macroString;
+
+    // (trailing blanks tolerated: macro lists are split on "," and often written with spaces)
+    QString pattern = "^\\s*\\%\\s*\\(\\s*read\\s+(.+)\\)\\s*$";
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QRegExp re(pattern);
+#else
+    QRegularExpression re(pattern);
+#endif
+    QStringList macro_list = macroString.split(",");
+    QStringList macro_list_expanded;
+    char asc[MAX_STRING_LENGTH];
+
+    for(int k = 0; k < macro_list.count(); ++k) {
+        QString macroFile = "";
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+        if(re.indexIn(macro_list[k]) >= 0) macroFile = re.cap(1).trimmed();
+#else
+        QRegularExpressionMatch match = re.match(macro_list[k]);
+        if(match.hasMatch()) macroFile = match.captured(1).trimmed();
+#endif
+        // not a %(read filename) item, keep it as it is
+        if(macroFile.length() < 1) {
+            macro_list_expanded.append(macro_list[k]);
+            continue;
+        }
+
+        searchFile *s = new searchFile(macroFile);
+        QString fileNameFound = s->findFile();
+        delete s;
+        if(fileNameFound.isNull()) {
+            snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s could not be loaded for %s",
+                     qasc(macroFile), qasc(context));
+            postMessage(QtCriticalMsg, asc);
+            continue;
+        }
+
+        QFile file(fileNameFound);
+        if(!file.open(QFile::ReadOnly)) {
+            snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s could not be opened for %s",
+                     qasc(fileNameFound), qasc(context));
+            postMessage(QtCriticalMsg, asc);
+            continue;
+        }
+        QString fileMacroString = QLatin1String(file.readAll());
+        file.close();
+        fileMacroString = fileMacroString.simplified().trimmed();
+
+        snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s loaded for %s",
+                 qasc(fileNameFound), qasc(context));
+        postMessage(QtWarningMsg, asc);
+
+        QStringList macro_list_from_file = fileMacroString.split(",");
+        for(int i = 0; i < macro_list_from_file.count(); ++i) {
+            if(macro_list_from_file[i].trimmed().length() > 0) macro_list_expanded.append(macro_list_from_file[i]);
+        }
+    }
+
+    return macro_list_expanded.join(",");
 }
 
 /**
@@ -6576,52 +6651,8 @@ void CaQtDM_Lib::Callback_RelatedDisplayClicked(int indx)
 
     // special case where macros are coming from a macro definition file
     // when specified with %(read filename) in the argument list
-
-    QString pattern="^\\s*\\%\\s*\\(\\s*read\\s+(.+)\\)$";
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    QRegExp re(pattern);
-#else
-    QRegularExpression re(pattern);
-#endif
     for (int j = 0; j < args.count(); ++j) {
-        QStringList macro_list = args[j].split(",");
-        QStringList macro_list_expanded;
-        for (int k = 0; k < macro_list.count(); ++k) {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-            int match = re.indexIn(macro_list[k]);
-            if (match >= 0) {
-                QString macroFile = re.cap(1);
-#else
-            QRegularExpressionMatch match = re.match(macro_list[k]);
-            if (match.hasMatch()) {
-                QString macroFile = match.captured();
-#endif
-                if(macroFile.length() > 0) {
-                    searchFile *s = new searchFile(macroFile);
-                    QString fileNameFound = s->findFile();
-                    char asc[MAX_STRING_LENGTH];
-                    if(fileNameFound.isNull()) {
-                        snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s could not be loaded for related display", qasc(macroFile));
-                        postMessage(QtCriticalMsg, asc);
-                    }
-                    else {
-                        snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s loaded for related display", qasc(macroFile));
-                        postMessage(QtWarningMsg, asc);
-                        QFile file(fileNameFound);
-                        file.open(QFile::ReadOnly);
-                        QString macroString = QLatin1String(file.readAll());
-                        macroString = macroString.simplified().trimmed();
-                        file.close();
-                        QStringList macro_list_from_file = macroString.split(",");
-                        macro_list_expanded = macro_list_expanded + macro_list_from_file;
-                    }
-                }
-            }
-            else {
-                macro_list_expanded.append(macro_list[k]);
-            }
-        }
-        args[j] = macro_list_expanded.join(",");
+        args[j] = expandMacroReadFiles(args[j], "related display");
     }
 
     //qDebug() << "RD files:" << files;
