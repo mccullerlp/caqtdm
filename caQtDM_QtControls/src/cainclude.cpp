@@ -175,13 +175,53 @@ void caInclude::setStacking(Stacking stacking) {
 void caInclude::setFileName(QString const &filename)
 {
     newFileName = filename.trimmed();
+    QString useFileName = newFileName;
+
 
     // load widgets from includes
     if(loadIncludes) {
+      if (QFileInfo(useFileName).isRelative()){
+
+        //parent->getFileName
+        // Find the Qt Designer form window canvas that owns this widget instance
+        QDesignerFormWindowInterface *formWindow = QDesignerFormWindowInterface::findFormWindow(this);
+
+        if (formWindow) {
+          // Retrieve the full absolute path of the open .ui file
+          QString uiPath = QFileInfo(formWindow->fileName()).path() + '/';
+
+          qDebug() << "ui path:" << uiPath;
+          useFileName = uiPath + useFileName;
+        } else {
+          // This block executes if the widget is running inside the actual compiled application
+          QString uiPath;
+          //qDebug() << "Widget is not running inside Qt Designer.";
+          QObject *p=parent();
+          while(p){
+            //qDebug() << "Parent " << qasc(p->objectName());
+            //p->setProperty("includeFile", QString("test"));
+            QVariant incl = p->property("includeFile");
+            if(incl.isValid()){
+              uiPath = QFileInfo(incl.value<QString>()).path() + '/';
+              qDebug() << "found parent path " << uiPath;
+              break;
+            }
+
+            //qDebug() << p->property("includeFile");
+            //caInclude *hmm = qobject_cast<caInclude*>(p);
+            //if(hmm){
+            //  qDebug() << "Parent is caInclude!";
+            //  qDebug() << hmm->newFileName;
+            //  break;
+            //}
+            p = p->parent();
+          }
+          useFileName = uiPath + useFileName;
+        }
+        }
 
         QUiLoader loader;
         QString fileName;
-        QStringList openFile;
         fileFunctions filefunction;
 
         int nbLines = thisMaxLines;
@@ -194,14 +234,14 @@ void caInclude::setFileName(QString const &filename)
 
         maximumX = maximumY = 0;
 
-        //printf("cainclude -- setfilename %s for %s\n", qasc(filename), qasc(this->objectName()));
+        printf("cainclude -- setfilename %s for %s\n", qasc(filename), qasc(this->objectName()));
 
-        if(newFileName.size() < 1) {
+        if(useFileName.size() < 1) {
             removeIncludedWidgets();
             return;
         }
 
-        if(!newFileName.contains(".")) {
+        if(!useFileName.contains(".")) {
             removeIncludedWidgets();
             return;
         }
@@ -353,13 +393,14 @@ void caInclude::setFileName(QString const &filename)
         if(thisStacking != Positions){
             if (gridLayout) frame->setLayout(gridLayout);
         }
-        if(newFileName.contains(".prc")) {
-            fileName = newFileName;
+        if(useFileName.contains(".prc")) {
+            fileName = useFileName;
             thisAdjust = false;
         } else {
-            openFile = newFileName.split(".", SKIP_EMPTY_PARTS);
-            fileName = openFile[0].append(".ui");
+          fileName = useFileName.section('.', 0, -2) + ".ui";
         }
+
+        qDebug() << "loading:" << fileName;
 
         // this will check for file existence and when an url is defined, download the file from a http server
         filefunction.checkFileAndDownload(fileName);
@@ -399,7 +440,9 @@ void caInclude::setFileName(QString const &filename)
                         printf("file %s has size zero \n",qasc(fileName));
                     }else{
                         printf("effective load of file %s for widget %s\n", qasc(fileNameFound), qasc(this->objectName()));
-                        tmp = loader.load(file, thisParent);
+                        this->setProperty("includeFile", fileNameFound);
+                        frame->setProperty("includeFile", fileNameFound);
+                        tmp = loader.load(file, this);
                     }
                 }
 
@@ -411,11 +454,14 @@ void caInclude::setFileName(QString const &filename)
                 effectiveSize= tmp->size();
                 // pep file
             } else {
-                ParsePepFile *parsefile = new ParsePepFile(fileNameFound);
-                printf("effective load of file %s for widget %s\n", qasc(fileNameFound), qasc(this->objectName()));
-                QWidget *tmp= parsefile->load(thisParent);
-                if(tmp == (QWidget*) Q_NULLPTR) return;
-                thisLoadedWidgets.append(tmp);
+              ParsePepFile *parsefile = new ParsePepFile(fileNameFound);
+              printf("effective load of file %s for widget %s\n", qasc(fileNameFound), qasc(this->objectName()));
+
+              this->setProperty("includeFile", fileNameFound);
+              frame->setProperty("includeFile", fileNameFound);
+              QWidget *tmp= parsefile->load(this);
+              if(tmp == (QWidget*) Q_NULLPTR) return;
+              thisLoadedWidgets.append(tmp);
                 loadedWidget = tmp;
                 effectiveSize= tmp->size();
             }
