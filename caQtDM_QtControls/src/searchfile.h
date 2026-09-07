@@ -37,6 +37,12 @@ public:
     searchFile(QString FileName);
     QString findFile();
     QString displayPath();
+    /**
+     * the name with a ".ui" suffix. Only what follows the last '.' behind the last path separator
+     * counts as suffix, so "../dir/name" has none and becomes "../dir/name.ui"; an existing suffix
+     * other than ui or prc (adl, edl, ...) is replaced.
+     */
+    static QString uiFileName(const QString &fileName);
 
 private:
     QString _FileName;

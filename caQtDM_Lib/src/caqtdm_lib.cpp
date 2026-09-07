@@ -2716,15 +2716,17 @@ void CaQtDM_Lib::HandleWidget(QWidget *w1, QString macro, bool firstPass, bool t
 
         includeWidget->setProperty("Taken", true);
 
-        // define the file to use
+        // define the file to use. Macros are replaced in the name as written, so that the lookup
+        // on CAQTDM_DISPLAY_PATH and the download from CAQTDM_URL_DISPLAY_PATH see the real name
         QString providedFileName = includeWidget->getFileName().trimmed();
+        reaffectText(map, &providedFileName, w1);
         QString fileName = providedFileName;
 
+        // second candidate, tried when the name as written is not found: relative to the file
+        // that contains this include
         if (QFileInfo(fileName).isRelative()){
           fileName = cainclude_path + fileName;
         }
-
-        reaffectText(map, &fileName, w1);
 
         QString openFile = "";
         int found = fileName.lastIndexOf(".");
@@ -2764,8 +2766,8 @@ void CaQtDM_Lib::HandleWidget(QWidget *w1, QString macro, bool firstPass, bool t
 #endif
         } else {
             qCDebug(caIncludeLog) << "ui file";
-            fileName = openFile.append(".ui");
-
+            // only a suffix behind the last path separator counts, "../dir/name" has none
+            fileName = searchFile::uiFileName(fileName);
         }
         qCDebug(caIncludeLog) << "use2 file" << providedFileName << openFile;
         // this will check for file existence and when an url is defined, download the file from a http server
@@ -11267,6 +11269,12 @@ QStringList CaQtDM_Lib::treat_read_MacroCommand(QStringList args){
                 if(macroFile.length() > 0) {
                     searchFile *s = new searchFile(macroFile);
                     QString fileNameFound = s->findFile();
+                    delete s;
+                    // not on the display path: as for an include, try relative to the including file
+                    if(fileNameFound.isNull() && QFileInfo(macroFile).isRelative() && !cainclude_path.isEmpty()) {
+                        const QFileInfo relativeFile(cainclude_path + macroFile);
+                        if(relativeFile.exists()) fileNameFound = relativeFile.filePath();
+                    }
                     char asc[MAX_STRING_LENGTH];
                     if(fileNameFound.isNull()) {
                         snprintf(asc, MAX_STRING_LENGTH, "macro definition file %s could not be loaded for related display", qasc(macroFile));
