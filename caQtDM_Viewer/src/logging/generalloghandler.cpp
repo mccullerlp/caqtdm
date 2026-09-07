@@ -34,12 +34,14 @@
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
 
 #include <QCoreApplication>
 
 #define ENV_LOG_HANDLERS "CAQTDM_LOGGING_HANDLERS"
 
+QAtomicInt GeneralLogHandler::s_shutDown;
 QMutex GeneralLogHandler::s_mutex;
 QList<AbstractLogHandler *> GeneralLogHandler::s_logHandlers;
 QThread *GeneralLogHandler::s_logHandlersThread = Q_NULLPTR;
@@ -126,10 +128,43 @@ QtMessageHandler GeneralLogHandler::initialize()
     }
 #endif
 
+    // The process goes on logging while it exits: shared libraries and plugins are unloaded after
+    // the static data of the program itself has been destroyed, and their QObjects (timers for
+    // instance) still emit warnings. Detach from Qt before that happens. Handlers registered with
+    // atexit() from within main() run before the destructors of static objects that were
+    // constructed at program start, which is exactly the order needed here.
+    static bool exitHandlerRegistered = false;
+    if (!exitHandlerRegistered) {
+        exitHandlerRegistered = true;
+        atexit(GeneralLogHandler::shutdown);
+    }
+    s_shutDown.storeRelease(0);
+
     // Now the custom handler is ready to accept logs, so install it again
     qInstallMessageHandler(GeneralLogHandler::messageHandler);
 
     return previousHandler;
+}
+
+void GeneralLogHandler::shutdown()
+{
+    // only the first call does the work
+    if (s_shutDown.fetchAndStoreRelease(1) != 0) return;
+
+    // back to the handler Qt brings itself, it stays valid until the very end of the process
+    qInstallMessageHandler(Q_NULLPTR);
+
+    QMutexLocker locker(&s_mutex);
+    for (auto logHandler : s_logHandlers) {
+        if (logHandler) logHandler->flush();
+    }
+    if (s_logHandlersThread) {
+        s_logHandlersThread->quit();
+        s_logHandlersThread->wait(1000);
+    }
+    // The endpoints belong to the logging thread; deleting them from here would warn about
+    // deleting an object from another thread, and the process is ending anyway.
+    s_logHandlers.clear();
 }
 
 QStringList GeneralLogHandler::selectedLogHandlersFromEnv(const QString &defaultConfig)
@@ -165,6 +200,14 @@ void GeneralLogHandler::messageHandler(QtMsgType type,
                                        const QMessageLogContext &context,
                                        const QString &message)
 {
+    // After shutdown() the containers used below are about to be, or already are, destroyed.
+    // Keep the message visible, but do not touch them any more.
+    if (s_shutDown.loadAcquire() != 0) {
+        fprintf(stderr, "%s\n", message.toLocal8Bit().constData());
+        fflush(stderr);
+        return;
+    }
+
     // Loglevel is filtered via QT_LOGGING_RULES environment variable.
 
     const long long msSinceEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(
