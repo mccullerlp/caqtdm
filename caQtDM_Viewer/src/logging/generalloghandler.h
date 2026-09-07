@@ -28,6 +28,7 @@
 
 #include "abstractloghandler.h"
 
+#include <QAtomicInt>
 #include <QMutex>
 #include <QThread>
 
@@ -47,6 +48,13 @@ public:
      * @return The previous QtMsgHandler. If it returns GeneralLogHandler::messageHandler, it was already initialized and nothing else was done
      */
     static QtMessageHandler initialize();
+    /**
+     * @brief Detaches the handler from Qt and releases the logging endpoints.
+     * Registered with atexit() by initialize(), so that Qt stops routing messages here before the
+     * static data used by messageHandler() is destroyed. Idempotent and thread-safe; may also be
+     * called explicitly, initialize() reactivates the handler afterwards.
+     */
+    static void shutdown();
     /**
      * @brief The messageHandler called by Qt (after injected) to handle all qDebugs and similar.
      * This function is thread-safe.
@@ -71,6 +79,8 @@ private:
     static QStringList selectedLogHandlersFromEnv(
         const QString &defaultSelection = DEFAULT_LOG_HANDLERS);
 
+    // set once the handler must not touch the static data below any more (process shutdown)
+    static QAtomicInt s_shutDown;
     static QMutex s_mutex;
     static QList<AbstractLogHandler *> s_logHandlers;
     static QThread *s_logHandlersThread;
