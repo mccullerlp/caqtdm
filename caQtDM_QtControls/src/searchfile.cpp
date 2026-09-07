@@ -87,3 +87,11 @@ QString searchFile::displayPath()
 {
     return (QString)  qgetenv("CAQTDM_DISPLAY_PATH");
 }
+
+QString searchFile::uiFileName(const QString &fileName)
+{
+    const QString suffix = QFileInfo(fileName).suffix();
+    if(suffix.isEmpty()) return fileName + ".ui";
+    if(suffix.compare("ui", Qt::CaseInsensitive) == 0 || suffix.compare("prc", Qt::CaseInsensitive) == 0) return fileName;
+    return fileName.left(fileName.size() - suffix.size()) + "ui";
+}
