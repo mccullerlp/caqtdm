@@ -29,6 +29,7 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QScopedPointer>
+#include <QFileInfo>
 #include <QtUiTools/QUiLoader>
 #include <math.h>
 #include "cainclude.h"
@@ -136,6 +137,30 @@ void caInclude::setPropertyVisible(Properties property, bool visible)
     designerVisible[property] = visible;
 }
 
+QString caInclude::includingFileDirectory()
+{
+    // an include nested in a loaded preview: the nearest enclosing caInclude remembers its file.
+    // This has to win over the form, otherwise "sub/leaf.ui" inside "sub/mid.ui" would be looked
+    // up next to the form instead of next to mid.ui
+    for(QObject *p = parent(); p != Q_NULLPTR; p = p->parent()) {
+        const QString file = p->property("includeFile").toString();
+        if(!file.isEmpty()) return QFileInfo(file).path() + "/";
+    }
+#ifndef MOBILE
+    // a top level include of the form being edited
+    if(QDesignerFormWindowInterface *formWindow = QDesignerFormWindowInterface::findFormWindow(this)) {
+        if(!formWindow->fileName().isEmpty()) return QFileInfo(formWindow->fileName()).path() + "/";
+    }
+#endif
+    return QString();
+}
+
+void caInclude::rememberIncludedFile(const QString &fileNameFound)
+{
+    setProperty("includeFile", fileNameFound);
+    if(frame) frame->setProperty("includeFile", fileNameFound);
+}
+
 void caInclude::removeIncludedWidgets()
 {
     if(thisLoadedWidgets.count() > 0) {
@@ -186,7 +211,6 @@ void caInclude::setFileName(QString const &filename)
 
         QUiLoader loader;
         QString fileName;
-        QStringList openFile;
         fileFunctions filefunction;
 
         int nbLines = thisMaxLines;
@@ -362,22 +386,32 @@ void caInclude::setFileName(QString const &filename)
             fileName = newFileName;
             thisAdjust = false;
         } else {
-            openFile = newFileName.split(".", SKIP_EMPTY_PARTS);
-            fileName = openFile[0].append(".ui");
+            fileName = searchFile::uiFileName(newFileName);
         }
 
-        // this will check for file existence and when an url is defined, download the file from a http server
+        // Same precedence as CaQtDM_Lib uses at run time: first the name as written (current
+        // directory, CAQTDM_DISPLAY_PATH, download from CAQTDM_URL_DISPLAY_PATH), then relative to
+        // the file this include is part of: the form open in the designer, or for an include nested
+        // in a loaded preview the file the enclosing caInclude has loaded.
         filefunction.checkFileAndDownload(fileName);
         searchFile *s = new searchFile(fileName);
         QString fileNameFound = s->findFile();
+        delete s;
+        if(fileNameFound.isNull() && QFileInfo(fileName).isRelative()) {
+            const QString baseDir = includingFileDirectory();
+            if(!baseDir.isEmpty()) {
+                const QFileInfo relativeFile(baseDir + fileName);
+                if(relativeFile.exists()) fileNameFound = relativeFile.filePath();
+                qCDebug(caIncludeLog) << "cainclude --" << fileName << "relative to" << baseDir
+                                      << (fileNameFound.isNull() ? "not found" : "found");
+            }
+        }
 
         // file was not found, remove previous widget if any
         if(fileNameFound.isNull()) {
             removeIncludedWidgets();
-            delete s;
             return;
         }
-        delete s;
 
         // file was found, remove previous widget if any
         removeIncludedWidgets();
@@ -403,7 +437,11 @@ void caInclude::setFileName(QString const &filename)
                         qCWarning(caIncludeLog) << "file" << fileName << "has size zero";
                     }else{
                         qCInfo(caIncludeLog) << "effective load of file" << fileNameFound << "for widget" << this->objectName();
-                        tmp = loader.load(file, thisParent);
+                        // includes nested in this file look up the "includeFile" property of their
+                        // ancestors while the loader sets their properties, so they have to be
+                        // created below this widget (they are moved into the frame afterwards)
+                        rememberIncludedFile(fileNameFound);
+                        tmp = loader.load(file, this);
                     }
                 }
 
@@ -418,7 +456,8 @@ void caInclude::setFileName(QString const &filename)
                 // scoped pointer also fixes the former leak (incl. early return)
                 QScopedPointer<UiConverterInterface> parsefile(UiConverterFactory::create(fileNameFound));
                 qCInfo(caIncludeLog) << "effective load of file" << fileNameFound << "for widget" << this->objectName();
-                QWidget *tmp= parsefile->load(thisParent);
+                rememberIncludedFile(fileNameFound);
+                QWidget *tmp= parsefile->load(this);
                 if(tmp == (QWidget*) Q_NULLPTR) return;
                 thisLoadedWidgets.append(tmp);
                 loadedWidget = tmp;

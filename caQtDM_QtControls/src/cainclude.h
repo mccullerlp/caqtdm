@@ -218,6 +218,11 @@ private:
     QGridLayout *gridLayout;
     QList<QWidget *> thisLoadedWidgets;
     bool loadIncludes;
+
+    // directory (with trailing '/') of the file this include belongs to, or empty when unknown
+    QString includingFileDirectory();
+    // remember the loaded file for includes nested in it
+    void rememberIncludedFile(const QString &fileNameFound);
     Stacking thisStacking, prvStacking;
     int thisItemCount, prvItemCount;
     int thisMaxLines, prvMaxLines;

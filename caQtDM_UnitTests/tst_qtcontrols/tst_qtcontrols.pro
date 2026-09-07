@@ -5,12 +5,14 @@ QT += network gui widgets designer
 
 SOURCES += tst_qtcontrols.cpp \
     tst_pvdialog.cpp \
+    tst_cainclude.cpp \
     tst_gensoftpv.cpp \
     tst_canumeric.cpp \
     tst_caspinbox.cpp \
     tst_caapplynumeric.cpp
 
 HEADERS += tst_pvdialog.h \
+    tst_cainclude.h \
     tst_gensoftpv.h \
     tst_canumeric.h \
     tst_caspinbox.h \

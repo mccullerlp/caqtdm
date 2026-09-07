@@ -32,6 +32,7 @@
 #include "tst_caspinbox.h"
 #include "tst_caapplynumeric.h"
 #include "tst_pvdialog.h"
+#include "tst_cainclude.h"
 
 int main(int argc, char **argv)
 {
@@ -47,6 +48,10 @@ int main(int argc, char **argv)
 
     {
         TestPVDialog tc;
+        status |= QTest::qExec(&tc, argc, argv);
+    }
+    {
+        TestCaInclude tc;
         status |= QTest::qExec(&tc, argc, argv);
     }
 
