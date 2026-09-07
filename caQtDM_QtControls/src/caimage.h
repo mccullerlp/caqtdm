@@ -34,6 +34,8 @@
 #include <qtcontrols_global.h>
 #include "messageQueue.h"
 
+class QSvgRenderer;
+
 class QTCON_EXPORT caImage : public QWidget
 {
 
@@ -73,6 +75,9 @@ public:
 
     int getFrameCount();
     void startMovie();
+    // true when the current file is rendered from its vector description (svg/svgz)
+    bool isVectorImage() const {return thisIsSvg;}
+    static bool isSvgFileName(const QString& filename);
     void setInvalid(QColor c);
     void setValid();
     QString getMessages();
@@ -96,13 +101,19 @@ private slots:
 
 protected:
     virtual void timerEvent(QTimerEvent *e);
+    virtual void resizeEvent(QResizeEvent *e);
 
 private:
     void init(const QString& filename, const bool isProvisional);
+    bool initSvg(const QString& fileNameFound);
+    // (re)rasterize the vector image for the current widget size and rotation
+    void renderSvg();
 
     messageQueue *messagequeue;
     QPointer<QLabel> _container;
     QPointer<QMovie> _animation;
+    QSvgRenderer *_svg;        // owned through the QObject parent, forward declared on purpose
+    bool thisIsSvg;
     QVBoxLayout* _layout;
     QString thisFileName;
     QPixmap pixmap, pix;

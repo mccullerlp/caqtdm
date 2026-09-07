@@ -9,10 +9,11 @@ include(../caQtDM.pri)
 
 contains(QT_VER_MAJ, 4) {
       CONFIG += qwt plugin thread uitools network
+      QT += svg
       CONFIG += designer
 }
 contains(QT_VER_MAJ, 5) {
-      QT += widgets concurrent uitools opengl network
+      QT += widgets concurrent uitools opengl network svg
       CONFIG  += qwt plugin cahmi
       DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x000000
       ios | android {
@@ -26,7 +27,7 @@ contains(QT_VER_MAJ, 5) {
       }
 }
 contains(QT_VER_MAJ, 6) {
-      QT += widgets concurrent opengl core network xml
+      QT += widgets concurrent opengl core network xml svg
       !android {
         QT += uitools
       }
