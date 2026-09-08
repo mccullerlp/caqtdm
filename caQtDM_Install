@@ -16,19 +16,20 @@ mkdir -p ${QTDM_PLUGININSTALL}/controlsystems
 cp -v caQtDM_Binaries/caQtDM  ${QTDM_BININSTALL}/
 cp -v caQtDM_Binaries/adl2ui  ${QTDM_BININSTALL}/
 cp -v caQtDM_Binaries/edl2ui  ${QTDM_BININSTALL}/
+cp -v caQtDM_Binaries/prc2ui  ${QTDM_BININSTALL}/
 
 cp -v caQtDM_Binaries/libcaQtDM_Lib.so  ${QTDM_LIBINSTALL}/
 cp -v caQtDM_Binaries/libqtcontrols.so  ${QTDM_LIBINSTALL}/
 cp -v caQtDM_Binaries/designer/libqtcontrols_*_plugin.so  ${QTDM_PLUGININSTALL}/designer/
+# the glob is case sensitive on purpose: libbsread_Plugin.so (PSI beam synchronous data, needs
+# zmq) is not part of the lab package
 cp -v caQtDM_Binaries/controlsystems/lib*_plugin.so  ${QTDM_PLUGININSTALL}/controlsystems/
-
-cp -v startDM      ${QTDM_BININSTALL}/ 
 
 echo ""
 echo "Put these in your .profile"
 echo "export QT_PLUGIN_PATH=${QTDM_LIBINSTALL}"
 echo " "
-echo "and execute 'designer' for building GUI's, 'adl2ui' for converting medm files, 'startDM' to execute caQtDM"
+echo "and execute 'designer' for building GUI's, 'adl2ui' for converting medm files, 'caQtDM' to run screens"
 echo "you may try the test files located in caQtDM_Tests (set CAQTDM_DISPLAY_PATH accordingly)"
 echo "you may try also to execute the command 'run-epics' in caQtDM_Tests (will setup a softioc) to get the channels"
 echo "used by the test."
