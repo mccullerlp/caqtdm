@@ -1724,6 +1724,7 @@ QString Epics4Plugin::pluginName()
 
 Epics4Plugin::Epics4Plugin()
 {
+    shutdownDone = false;
     if(Epics4Plugin::getDebug()) qCInfo(::epics4Log) << "Epics4: Create";
     connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(closeEvent()));
 }
@@ -1982,6 +1983,10 @@ int Epics4Plugin::FlushIO() {
 }
 
 void Epics4Plugin::closeEvent(){
+   // aboutToQuit() can be emitted more than once (nested QCoreApplication::exit() calls since Qt 6.5);
+   // the shutdown below must only run once.
+   if(shutdownDone) return;
+   shutdownDone = true;
    TerminateIO();
    Epics4Plugin::setDebug(true);
    if(Epics4Plugin::getDebug()) qCDebug(::epics4Log) << "Epics4Plugin::closeEvent calling ClientFactory::stop();";

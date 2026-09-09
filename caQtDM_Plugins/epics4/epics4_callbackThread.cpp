@@ -37,6 +37,16 @@ epics4_CallbackThread::~epics4_CallbackThread()
     qCDebug(epics4Log) << "CallbackThread::~CallbackThread()";
 }
 
+void epics4_CallbackThread::stop()
+{
+    if(stopped) return;
+    stopped = true;
+    runStop.signal();
+    if(!runReturn.wait(5.0)) {
+        qCWarning(epics4Log) << "epics4_CallbackThread::stop: callback thread did not terminate within 5 s";
+    }
+}
+
 void epics4_CallbackThread::run()
 {
     CallbackRequesterPtr callbackRequester;

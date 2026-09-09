@@ -288,6 +288,8 @@ private:
      MessageWindow* messageWindow;
      MutexKnobData *mutexKnobData;
      bool userClose;
+     bool quitRequested;
+     void requestQuit();
 
      QMainWindow *pvWindow;
      QTableWidget* pvTable;
