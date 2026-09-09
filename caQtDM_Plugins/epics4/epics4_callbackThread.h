@@ -28,6 +28,7 @@
 
 #include <queue>
 #include <epicsThread.h>
+#include <cstdio>
 #include <pv/event.h>
 #include <pv/lock.h>
 
@@ -82,13 +83,24 @@ public:
          t->startThread();
          return t;
     } 
+    bool isStopped() const { return stopped; }
     void stop()
     {
+        if (stopped) {
+            fprintf(stderr, "[DIAG] epics4_CallbackThread::stop() called again, ignored\n");
+            fflush(stderr);
+            return;
+        }
+        stopped = true;
         runStop.signal();
-        runReturn.wait();
+        if (!runReturn.wait(5.0)) {
+            fprintf(stderr, "[DIAG] epics4_CallbackThread::stop(): thread did not acknowledge within 5 s\n");
+            fflush(stderr);
+        }
     }
 private:
-    epics4_CallbackThread()
+    bool stopped;
+    epics4_CallbackThread() : stopped(false)
     {}
 };
 

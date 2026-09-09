@@ -30,6 +30,11 @@
 
 #include <pv/nt.h>
 #include "epics4_plugin.h"
+#include <QThread>
+#include <QDateTime>
+#include <execinfo.h>
+#include <unistd.h>
+#include <cstdio>
 #include <epicsThread.h>
 #include <ctime>
 #include "caQtDM_Plugins_global.h"
@@ -1982,6 +1987,24 @@ int Epics4Plugin::FlushIO() {
 }
 
 void Epics4Plugin::closeEvent(){
+   // DIAG: trace every invocation; a second invocation would deadlock in epics4_CallbackThread::stop()
+   static int closeCount = 0;
+   ++closeCount;
+   {
+       void *bt[64];
+       int cnt = backtrace(bt, 64);
+       fprintf(stderr, "\n[DIAG %s pid %lld] Epics4Plugin::closeEvent #%d this=%p thread=%p callbackThreadStopped=%d\n",
+               qPrintable(QDateTime::currentDateTime().toString("HH:mm:ss.zzz")), (long long) QCoreApplication::applicationPid(),
+               closeCount, (void *) this, (void *) QThread::currentThread(),
+               epics4_callbackThread ? (int) epics4_callbackThread->isStopped() : -1);
+       backtrace_symbols_fd(bt, cnt, STDERR_FILENO);
+       fflush(stderr);
+   }
+   if (closeCount > 1) {
+       fprintf(stderr, "[DIAG] Epics4Plugin::closeEvent already ran once, skipping (the unpatched build hangs here)\n");
+       fflush(stderr);
+       return;
+   }
    TerminateIO();
    Epics4Plugin::setDebug(true);
    if(Epics4Plugin::getDebug()) qCDebug(::epics4Log) << "Epics4Plugin::closeEvent calling ClientFactory::stop();";

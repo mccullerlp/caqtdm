@@ -46,6 +46,11 @@
 
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 #include <QApplication>
+#include <QThread>
+#include <QDateTime>
+#include <execinfo.h>
+#include <unistd.h>
+#include <cstdio>
 
 #ifndef CAQTDM_NO_CUSTOM_LOGHANDLER
 #include <logging/generalloghandler.h>
@@ -500,6 +505,18 @@ int main(int argc, char *argv[])
 #endif
 
     QApplication app(argc, argv);
+    // DIAG: trace every aboutToQuit emission (this connection is made before any plugin connects its own slot)
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [] {
+        static int emissions = 0;
+        ++emissions;
+        void *bt[64];
+        int cnt = backtrace(bt, 64);
+        fprintf(stderr, "\n[DIAG %s pid %lld] aboutToQuit emission #%d in thread %p (main thread %p), main loopLevel=%d\n",
+                qPrintable(QDateTime::currentDateTime().toString("HH:mm:ss.zzz")), (long long) QCoreApplication::applicationPid(),
+                emissions, (void *) QThread::currentThread(), (void *) qApp->thread(), qApp->thread()->loopLevel());
+        backtrace_symbols_fd(bt, cnt, STDERR_FILENO);
+        fflush(stderr);
+    });
     QApplication::setOrganizationName("Paul Scherrer Institut");
     QApplication::setApplicationName("caQtDM");
 
