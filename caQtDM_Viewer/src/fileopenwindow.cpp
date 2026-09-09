@@ -266,6 +266,7 @@ FileOpenWindow::FileOpenWindow(QMainWindow* parent,  QString filename, QString m
 
     lastGeometry = geometry;
     userClose = false;
+    quitRequested = false;
     printandexit = printscreen;
     minimizeMessageWindow = minimize;
     activWindow = 0;
@@ -1026,9 +1027,7 @@ void FileOpenWindow::timerEvent(QTimerEvent *event)
 
             QList<CaQtDM_Lib *> all = this->findChildren<CaQtDM_Lib *>();
             foreach(QWidget* widget, all) widget->close();
-            if (timer) timer->stop();
-            if (sharedMemory.isAttached()) sharedMemory.detach();
-            qApp->exit(0);
+            requestQuit();
         }
     }
 
@@ -1177,9 +1176,7 @@ void FileOpenWindow::timerEvent(QTimerEvent *event)
     // we want to ask with timeout if the application has to be closed. 23-jan-2013 no yust exit (in case of tablet do not exit)
 #ifndef MOBILE
     if(this->findChildren<CaQtDM_Lib *>().count() <= 0 && userClose) {
-        if (timer) timer->stop();
-        if (sharedMemory.isAttached()) sharedMemory.detach();
-        qApp->exit(0);
+        requestQuit();
     } else if(this->findChildren<CaQtDM_Lib *>().count() > 0) {
         userClose = true;
     }
@@ -1714,6 +1711,8 @@ void FileOpenWindow::Callback_ActionExit()
 {
     int selected;
 
+    if(quitRequested) return;
+
     // launch window close
     if(!fromIOS) {
         QString message = QString("Are you sure to want to exit?");
@@ -1748,11 +1747,26 @@ void FileOpenWindow::Callback_ActionExit()
         }
 
 // detach shared memory, delete pv container
-        if (timer) timer->stop();
-        if (sharedMemory.isAttached()) sharedMemory.detach();
-        qApp->exit(0);
-        //exit(0);
+        requestQuit();
     }
+}
+
+/**
+ * Leave the application exactly once.
+ *
+ * Since Qt 6.5 QCoreApplication::exit() emits aboutToQuit() itself, and every further exit()
+ * issued before the first one has finished emits it again. Some aboutToQuit() slots pump the
+ * event loop (QApplication::processEvents()), which lets the housekeeping timerEvent() run in
+ * the middle of the shutdown; it then saw no display window left and called exit() a second
+ * time, so all aboutToQuit() slots ran twice (the epics4 plugin deadlocked on that).
+ */
+void FileOpenWindow::requestQuit()
+{
+    if(quitRequested) return;
+    quitRequested = true;
+    if (timer) timer->stop();
+    if (sharedMemory.isAttached()) sharedMemory.detach();
+    qApp->exit(0);
 }
 
 void FileOpenWindow::reload(QWidget *w)

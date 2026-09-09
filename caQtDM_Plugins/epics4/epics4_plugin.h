@@ -116,6 +116,7 @@ public:
     std::map<std::string, int > pvMap;
     epics::caqtdm::epics4::Epics4RequesterPtr requester;
     epics::pvData::CallbackThreadPtr epics4_callbackThread;
+    bool shutdownDone;
     MutexKnobData * mutexKnobData;
     epics::caqtdm::epics4::PVAChannelProviderPtr providerN;
 signals:

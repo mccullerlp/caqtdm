@@ -82,13 +82,12 @@ public:
          t->startThread();
          return t;
     } 
-    void stop()
-    {
-        runStop.signal();
-        runReturn.wait();
-    }
+    // Ask the thread to leave run() and wait for it. Safe to call more than once: the
+    // handshake is one-shot, a second unconditional wait would block forever.
+    void stop();
 private:
-    epics4_CallbackThread()
+    bool stopped;
+    epics4_CallbackThread() : stopped(false)
     {}
 };
 
