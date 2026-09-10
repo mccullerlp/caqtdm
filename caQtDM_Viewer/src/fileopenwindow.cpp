@@ -429,7 +429,7 @@ FileOpenWindow::FileOpenWindow(QMainWindow* parent,  QString filename, QString m
             Sleep::msleep(150);
             if (sharedMemory.attach()) {
                 // foreign layout, unusable
-                    if(sharedMemory.size() <= MSQ_segmentSize()) {
+                    if(sharedMemory.size() < MSQ_segmentSize()) {
                     qCWarning(fileOpenWindowLog) << "caQtDM -- shared memory of unexpected size" << sharedMemory.size()
                                                  << "(expected" << MSQ_segmentSize() << ") ==> incompatible instance, standalone";
                     sharedMemory.detach();
